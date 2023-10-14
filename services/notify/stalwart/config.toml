@@ -1,0 +1,136 @@
+[global.tracing]
+level = "trace"
+method = "stdout"
+
+[server]
+hostname = "mail.notify"
+
+[server.run-as]
+group = "stalwart-mail"
+user = "stalwart-mail"
+
+[store.db]
+path = "/opt/stalwart-mail/data/index.sqlite3"
+
+[store.blob]
+local.path = "/opt/stalwart-mail/data/blobs"
+type = "local"
+
+[directory.postgres]
+address = "postgresql://stalwart:stalwort-password@postgres:5432/notify?sslmode=disable"
+type = "sql"
+
+[directory.postgres.columns]
+name = "username"
+secret = "password_hash"
+
+[directory.postgres.query]
+domains = "SELECT 'notify'"
+emails = "SELECT a.username || '@notify' FROM account a WHERE a.username = $1"
+members = "SELECT gm.group_name FROM group_member gm WHERE gm.username = $1"
+name = "SELECT a.username, a.password_hash FROM account a WHERE a.username = $1"
+recipients = "SELECT a.username FROM account a WHERE a.username = substring($1, '(.+)@') AND substring($1, '@(.+)') = 'notify'"
+
+[server.listener.submission]
+bind = "[::]:587"
+protocol = "smtp"
+
+[server.listener.imap]
+bind = "[::]:143"
+protocol = "imap"
+
+[server.listener.jmap]
+bind = "[::]:8080"
+protocol = "jmap"
+url = "stalwart:8080"
+
+[jmap]
+directory = "postgres"
+
+[jmap.principal]
+allow-lookups = false
+
+[jmap.protocol.request]
+max-size = 131072
+
+[jmap.protocol.upload]
+max-size = 0
+quota.files = 0
+quota.size = 0
+ttl = "1ms"
+
+[imap.auth]
+allow-plain-text = true
+max-failures = 2
+
+[imap.request]
+max-size = 131072
+
+[imap.timeout]
+anonymous = "1m"
+authenticated = "1m"
+idle = "1m"
+
+[auth]
+arc.verify = "disable"
+dkim.verify = "disable"
+dmarc.verify = "disable"
+iprev.verify = "disable"
+spf.verify.ehlo = "disable"
+spf.verify.mail-from = "disable"
+
+[session]
+duration = "30m"
+timeout = "10m"
+
+[session.mail]
+script = "mail_from_notifier"
+
+[session.rcpt]
+directory = "postgres"
+errors.total = 5
+errors.wait = "1ms"
+relay = false
+script = "rcpt_to_notify"
+
+[session.data.limits]
+messages = 1000
+size = 8192
+
+[session.data.add-headers]
+auth-results = false
+message-id = false
+received = false
+received-spf = false
+return-path = false
+
+[queue]
+outbound.next-hop = "local"
+path = "/opt/stalwart-mail/queue"
+
+[report]
+path = "/opt/stalwart-mail/reports"
+
+[resolver]
+type = "system"
+
+[sieve.scripts]
+mail_from_notifier = '''
+  require ["envelope", "reject"];
+
+  if not envelope :all :is "from" "notifier@notify" {
+    reject "Only the notifier should send mail via this server.";
+  }
+'''
+
+rcpt_to_notify = '''
+  require ["envelope", "reject"];
+
+  if not envelope :domain :is "to" "notify" {
+    reject "Only mail to notify addresses is accepted.";
+  }
+
+  if envelope :all :is "to" "notifier@notify" {
+    reject "Only mail to non-service users is accepted.";
+  }
+'''

@@ -1,0 +1,43 @@
+services:
+  stalwart:
+    build: stalwart
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    volumes:
+      - ./stalwart/config.toml:/opt/stalwart-mail/etc/config.toml:ro
+      - stalwart-data:/opt/stalwart-mail
+    ports:
+      - 143:143 # only leave this IMAP port open, other ports are needed for the Rust service
+      - 587:587
+      - 8080:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+  postgres:
+    image: postgres:16.0-bookworm
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    volumes:
+      - ./postgres/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: notify
+      POSTGRES_USER: superuser
+      POSTGRES_PASSWORD: superuser-password
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: pg_isready -d notify -U superuser
+      interval: 5s
+      timeout: 3s
+    restart: unless-stopped
+volumes:
+  stalwart-data:
+  postgres-data:

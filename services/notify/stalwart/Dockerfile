@@ -1,0 +1,9 @@
+FROM stalwartlabs/mail-server:v0.3.9
+
+RUN mkdir \
+  /opt/stalwart-mail/data \
+  /opt/stalwart-mail/data/blobs \
+  /opt/stalwart-mail/queue \
+  /opt/stalwart-mail/reports
+
+RUN chown -R stalwart-mail:stalwart-mail /opt/stalwart-mail
