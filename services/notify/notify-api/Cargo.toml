@@ -1,14 +1,20 @@
 [package]
+edition = "2021"
 name = "notify-api"
 version = "0.1.0"
-edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.75"
 axum = "0.6.20"
-slog = "2.7.0"
-slog-async = "2.8.0"
-slog-json = "2.6.1"
 tokio = { version = "1.33.0", features = ["full"] }
+tower-cookies = { version = "0.9.0", features = ["signed"] }
+tower-http = { version = "0.4.4", features = ["trace"] }
+tower-sessions = { version = "0.3.1", features = [
+  "moka-store",
+  "sqlite-store",
+  "tokio-rt",
+] }
+tracing = "0.1.39"
+tracing-subscriber = { version = "0.3.17", features = ["json"] }
