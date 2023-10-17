@@ -9,7 +9,6 @@ version = "0.1.0"
 anyhow = "1.0.75"
 axum = "0.6.20"
 axum-extra = { version = "0.8.0", features = ["cookie", "cookie-private"] }
-axum-macros = "0.3.8"
 cookie = { version = "0.17.0", features = ["private"] }
 lazy_static = "1.4.0"
 regex = "1.10.2"
@@ -18,12 +17,6 @@ serde_json = "1.0.107"
 time = { version = "0.3.30", features = ["serde"] }
 tokio = { version = "1.33.0", features = ["full"] }
 tower = "0.4.13"
-tower-cookies = { version = "0.9.0", features = ["signed"] }
 tower-http = { version = "0.4.4", features = ["trace", "catch-panic"] }
-tower-sessions = { version = "0.3.1", features = [
-  "moka-store",
-  "sqlite-store",
-  "tokio-rt",
-] }
 tracing = "0.1.39"
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
