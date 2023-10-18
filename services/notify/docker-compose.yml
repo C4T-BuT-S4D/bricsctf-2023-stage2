@@ -9,6 +9,8 @@ services:
     volumes:
       - ./stalwart/config.toml:/opt/stalwart-mail/etc/config.toml:ro
       - stalwart-data:/opt/stalwart-mail
+    environment:
+      DATABASE_URL: postgresql://stalwart:stalwart-password@postgres:5432/notify?sslmode=disable
     ports:
       - 143:143 # only leave this IMAP port open, other ports are needed for the Rust service
       - 587:587

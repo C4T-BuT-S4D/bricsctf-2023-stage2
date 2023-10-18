@@ -17,7 +17,7 @@ local.path = "/opt/stalwart-mail/data/blobs"
 type = "local"
 
 [directory.postgres]
-address = "postgresql://stalwart:stalwort-password@postgres:5432/notify?sslmode=disable"
+address = !DATABASE_URL
 type = "sql"
 
 [directory.postgres.columns]

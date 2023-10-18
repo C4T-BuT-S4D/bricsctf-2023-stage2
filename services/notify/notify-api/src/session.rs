@@ -31,7 +31,7 @@ struct WrappedSession {
 /// Returns a tower Layer that adds session extraction & saving to a private cookie jar using a key,
 /// which will either be retrieved from the specified file, or generated and saved to it.
 /// Handlers can then receive the Session by accepting Extension<Option<session::Session>>,
-/// and save a new session by returning Option<Extension<session::Session>>.
+/// and save a new session by returning Extension<session::Session>.
 pub fn layer<B: HttpBody + Send + 'static>(
     cookie_key_path: &str,
 ) -> Result<

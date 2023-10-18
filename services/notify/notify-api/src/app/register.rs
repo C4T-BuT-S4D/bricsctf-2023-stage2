@@ -1,16 +1,22 @@
-use crate::app::{Validate, ValidatedJson};
+use crate::app::{self, JsonError, LoggedError, Validate, ValidatedJson};
+use crate::repository;
+use crate::rng::APP_RNG;
 use crate::session::Session;
 
+use anyhow::{Context, Result};
+use argon2::password_hash::{PasswordHasher, SaltString};
+use argon2::Argon2;
+use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Extension;
-use lazy_static::lazy_static;
+use axum_macros::debug_handler;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Deserialize;
 
-lazy_static! {
-    static ref USERNAME_RE: Regex =
-        Regex::new(r"^[a-z0-9][a-z0-9_-]+[a-z0-9]$").expect("failed to construct username regex");
-}
+static USERNAME_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^[a-z0-9][a-z0-9_-]+[a-z0-9]$").expect("failed to construct username regex")
+});
 
 #[derive(Clone, Deserialize)]
 pub struct RegistrationRequest {
@@ -46,13 +52,34 @@ impl Validate for RegistrationRequest {
 }
 
 /// Handler implementing the /register API endpoint.
+#[debug_handler]
 pub async fn handler(
+    State(state): State<app::State>,
     ValidatedJson(request): ValidatedJson<RegistrationRequest>,
-) -> (Option<Extension<Session>>, StatusCode) {
-    (
-        Some(Extension(Session {
-            username: request.username,
-        })),
-        StatusCode::CREATED,
-    )
+) -> Result<(StatusCode, Result<Extension<Session>, JsonError>), LoggedError> {
+    let salt = APP_RNG.with_borrow_mut(|rng| SaltString::generate(rng));
+    let password_hash = Argon2::default()
+        .hash_password(request.password.as_bytes(), &salt)
+        .map_err(anyhow::Error::msg)
+        .with_context(|| "hashing password")?;
+
+    let created = state
+        .repository
+        .create_account(repository::Account {
+            username: request.username.clone(),
+            password_hash: password_hash.to_string(),
+        })
+        .await
+        .with_context(|| "creating account")?;
+
+    if !created {
+        Ok((StatusCode::CONFLICT, Err(JsonError::new("Sorry, but someone has beat you to the punch and taken your username! You should choose another one."))))
+    } else {
+        Ok((
+            StatusCode::CREATED,
+            Ok(Extension(Session {
+                username: request.username,
+            })),
+        ))
+    }
 }
