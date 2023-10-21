@@ -9,7 +9,6 @@ use argon2::Argon2;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Extension;
-use axum_macros::debug_handler;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Deserialize;
@@ -52,7 +51,6 @@ impl Validate for RegistrationRequest {
 }
 
 /// Handler implementing the /register API endpoint.
-#[debug_handler]
 pub async fn handler(
     State(state): State<app::State>,
     ValidatedJson(request): ValidatedJson<RegistrationRequest>,
@@ -73,7 +71,7 @@ pub async fn handler(
         .with_context(|| "creating account")?;
 
     if !created {
-        Ok((StatusCode::CONFLICT, Err(JsonError::new("Sorry, but someone has beat you to the punch and taken your username! You should choose another one."))))
+        Ok((StatusCode::CONFLICT, Err(JsonError::new("Sorry, but someone has beaten you to the punch and taken your username! You should choose another one."))))
     } else {
         Ok((
             StatusCode::CREATED,
