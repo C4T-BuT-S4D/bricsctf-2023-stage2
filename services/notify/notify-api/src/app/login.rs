@@ -3,9 +3,7 @@ use crate::session::Session;
 
 use anyhow::Context;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use axum::extract::State;
-use axum::http::StatusCode;
-use axum::{Extension, Json};
+use axum::{extract::State, http::StatusCode, Extension, Json};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 
@@ -14,9 +12,6 @@ use serde::Deserialize;
 static DUMMY_PASSWORD_HASH: Lazy<PasswordHash> = Lazy::new(|| {
     PasswordHash::new("$argon2id$v=19$m=19456,t=2,p=1$XG+qmZeu708R/snDBX2U+Q$bygPbDQBbBx3wQl3MvMdK7WVWoK/+LMK8Vsh6brpo/I").expect("failed to parse dummy password hash")
 });
-
-static INVALID_CREDENTIALS_ERROR: &str =
-    "Invalid credentials supplied, please validate the username and password.";
 
 #[derive(Clone, Deserialize)]
 pub struct LoginRequest {
@@ -51,9 +46,9 @@ pub async fn handler(
     {
         return Ok((
             StatusCode::UNAUTHORIZED,
-            Err(JsonError {
-                error: INVALID_CREDENTIALS_ERROR.to_owned(),
-            }),
+            Err(JsonError::new(
+                "Invalid credentials supplied, please validate the username and password.",
+            )),
         ));
     }
 

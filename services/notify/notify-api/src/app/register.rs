@@ -6,9 +6,7 @@ use crate::session::Session;
 use anyhow::{Context, Result};
 use argon2::password_hash::{PasswordHasher, SaltString};
 use argon2::Argon2;
-use axum::extract::State;
-use axum::http::StatusCode;
-use axum::Extension;
+use axum::{extract::State, http::StatusCode, Extension};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Deserialize;
@@ -26,23 +24,22 @@ pub struct RegistrationRequest {
 impl Validate for RegistrationRequest {
     fn validate(&self) -> Result<(), String> {
         if !USERNAME_RE.is_match(&self.username) {
-            return Err("We currently allow usernames consisting only of lowercase english letters, numbers, and dashes/underscores in between the rest! Sorry!".to_owned());
+            return Err("We currently allow usernames consisting only of lowercase english letters, numbers, and dashes/underscores in between the rest! Sorry!".into());
         } else if self.username.len() < 5 {
             return Err(
-                "Your username is too short! Please make it at least 5 characters long.".to_owned(),
+                "Your username is too short! Please make it at least 5 characters long.".into(),
             );
         } else if self.username.len() > 15 {
             return Err(
-                "Your username is too long! Please shorten it to 15 characters or less.".to_owned(),
+                "Your username is too long! Please shorten it to 15 characters or less.".into(),
             );
         }
 
         if self.password.len() < 8 {
-            return Err("Please lengthen your password to at least 8 characters, it is dangerously short right now!".to_owned());
+            return Err("Please lengthen your password to at least 8 characters, it is dangerously short right now!".into());
         } else if self.password.len() > 30 {
             return Err(
-                "Your password is very long, please shorten it to 30 characters or less."
-                    .to_owned(),
+                "Your password is very long, please shorten it to 30 characters or less.".into(),
             );
         }
 
@@ -63,7 +60,7 @@ pub async fn handler(
 
     let created = state
         .repository
-        .create_account(repository::Account {
+        .create_account(&repository::Account {
             username: request.username.clone(),
             password_hash: password_hash.to_string(),
         })

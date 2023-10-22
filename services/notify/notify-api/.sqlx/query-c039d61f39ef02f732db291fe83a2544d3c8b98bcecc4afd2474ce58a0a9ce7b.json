@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into account (username, password_hash) values ($1, $2)",
+  "query": "INSERT INTO account (username, password_hash)\n            VALUES ($1, $2)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -11,5 +11,5 @@
     },
     "nullable": []
   },
-  "hash": "3c622de77747ebb052acacd3418dff3c5dc98e5493c87f4aec27fe870502dbd6"
+  "hash": "c039d61f39ef02f732db291fe83a2544d3c8b98bcecc4afd2474ce58a0a9ce7b"
 }
