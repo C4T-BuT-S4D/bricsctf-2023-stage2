@@ -41,7 +41,7 @@ func GetCompany(c *fiber.Ctx) error {
 }
 
 func QueryCompany(c *fiber.Ctx) error {
-	var body types.QuearyCompanyForm
+	var body types.QueryCompanyForm
 
 	if err := util.ParseBodyAndValidate(c, &body); err != nil {
 		return util.Fail(c, fiber.StatusBadRequest, err.Error())
