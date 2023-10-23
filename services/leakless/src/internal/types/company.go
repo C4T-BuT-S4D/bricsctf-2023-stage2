@@ -5,20 +5,20 @@ type Secret struct {
 	ID     uint   `json:"id"`
 }
 
-type GetCompanyResponse struct {
-	ID          uint   `json:"id"`
-	Login       string `json:"login" validate:"required"`
-	Name        string `json:"name" validate:"required,min=3"`
-	DocumentIDs []uint `json:"documents"`
-}
-
-type QuearyCompanyForm struct {
+type QueryCompanyForm struct {
 	Login *string `json:"login"`
 	Name  *string `json:"name"`
 }
 
 type PutDocForm struct {
 	Text string `json:"text" validate:"required"`
+}
+
+type GetCompanyResponse struct {
+	ID          uint   `json:"id"`
+	Login       string `json:"login"`
+	Name        string `json:"name"`
+	DocumentIDs []uint `json:"documents"`
 }
 
 type GetCompaniesResponse struct {
