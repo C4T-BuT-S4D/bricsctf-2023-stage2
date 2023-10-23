@@ -3,17 +3,21 @@ mod config;
 mod repository;
 mod rng;
 mod session;
+mod smtp;
 
 use std::process;
-use std::time::Duration;
 
 use anyhow::{Context, Result};
+use tokio_util::sync::CancellationToken;
 use tower::ServiceBuilder;
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::{error, info, warn, Level};
 
 const MAX_USER_AGE: time::Duration = time::Duration::minutes(30);
+const NOTIFIER_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+const NOTIFIER_USERNAME: &str = "notifier";
+const NOTIFIER_HOSTNAME: &str = "notify";
 
 #[tokio::main]
 async fn main() -> process::ExitCode {
@@ -38,17 +42,29 @@ async fn main() -> process::ExitCode {
 
 async fn run() -> Result<()> {
     let cfg = config::Config::from_env()?;
+    let cancel_token = CancellationToken::new();
 
     let repository = repository::Repository::connect(
         &cfg.database_url,
-        Duration::from_secs(30),
-        Duration::from_secs(10),
+        std::time::Duration::from_secs(30),
+        std::time::Duration::from_secs(10),
         64,
     )
     .await?;
 
-    let state = app::State { repository };
+    let notifier = {
+        let f = smtp::notifier(
+            cancel_token.clone(),
+            NOTIFIER_INTERVAL,
+            format!("{}@{}", NOTIFIER_USERNAME, NOTIFIER_HOSTNAME),
+        );
+        async move {
+            info!("running notifier with a {:?} interval", NOTIFIER_INTERVAL);
+            f.await
+        }
+    };
 
+    let state = app::State { repository };
     let router = app::router()
         .layer(
             ServiceBuilder::new()
@@ -63,20 +79,46 @@ async fn run() -> Result<()> {
         )
         .with_state(state);
 
-    info!("serving API on {}", cfg.listen_addr);
+    let api_server = axum::Server::bind(&cfg.listen_addr).serve(router.into_make_service());
+    let graceful_api_server = {
+        let cancel_token = cancel_token.clone();
+        async move {
+            info!("serving API on {}", &cfg.listen_addr);
+            api_server
+                .with_graceful_shutdown(cancel_token.cancelled())
+                .await
+        }
+    };
 
-    let server = axum::Server::bind(&cfg.listen_addr).serve(router.into_make_service());
-    let graceful = server.with_graceful_shutdown(shutdown_signal());
+    let notifier_handle = tokio::spawn(notifier);
+    let api_server_handle = tokio::spawn(graceful_api_server);
 
-    graceful.await.with_context(|| "gracefully serving API")?;
+    tokio::select! {
+        _ = cancel_token.cancelled() => {}
+        _ = shutdown_signal(cancel_token.clone()) => {}
+    }
+
+    warn!("received cancelation signal, performing graceful shutdown");
+
+    if let Err(e) = notifier_handle.await {
+        error!(
+            error = format!("{:#}", e),
+            "failed to join notifier processor future"
+        );
+    }
+
+    match api_server_handle.await {
+        Ok(r) => r.with_context(|| "serving API")?,
+        Err(e) => error!(error = format!("{:#}", e), "failed to join server future"),
+    };
 
     Ok(())
 }
 
-async fn shutdown_signal() {
+async fn shutdown_signal(cancel_token: CancellationToken) {
     tokio::signal::ctrl_c()
         .await
         .expect("failed to install graceful shutdown signal handler");
 
-    warn!("performing graceful shutdown");
+    cancel_token.cancel()
 }

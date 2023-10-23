@@ -19,6 +19,7 @@ serde_with = { version = "3.4.0", features = ["time_0_3"] }
 sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio", "time", "uuid"] }
 time = { version = "0.3.30", features = ["serde"] }
 tokio = { version = "1.33.0", features = ["full"] }
+tokio-util = "0.7.9"
 tower = "0.4.13"
 tower-http = { version = "0.4.4", features = ["catch-panic", "trace"] }
 tracing = "0.1.39"

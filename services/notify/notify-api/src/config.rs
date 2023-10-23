@@ -7,6 +7,7 @@ pub struct Config {
     pub listen_addr: SocketAddr,
     pub database_url: String,
     pub cookie_key_path: String,
+    pub notifier_secret_path: String,
 }
 
 impl Config {
@@ -22,10 +23,14 @@ impl Config {
         let cookie_key_path = env::var("COOKIE_KEY_PATH")
             .with_context(|| "failed to read COOKIE_KEY_PATH from env")?;
 
+        let notifier_secret_path = env::var("NOTIFIER_SECRET_PATH")
+            .with_context(|| "failed to read NOTIFIER_SECRET_PATH from env")?;
+
         Ok(Self {
             listen_addr,
             database_url,
             cookie_key_path,
+            notifier_secret_path,
         })
     }
 }
