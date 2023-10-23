@@ -14,7 +14,7 @@ services:
       - uploads:/uploads
     restart: unless-stopped
     cpus: 1
-    mem_limit: 1024
+    mem_limit: 1024m
     pids_limit: 4096
 
   renderer:
@@ -27,7 +27,7 @@ services:
       - uploads:/uploads/file
     restart: unless-stopped
     cpus: 1
-    mem_limit: 1024
+    mem_limit: 1024m
     pids_limit: 4096
 
   mongodb:
