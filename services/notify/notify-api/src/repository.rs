@@ -250,6 +250,7 @@ impl Repository {
     pub async fn save_notification_result(
         &self,
         id: &Uuid,
+        planned_at: OffsetDateTime,
         result: Option<OffsetDateTime>,
     ) -> Result<()> {
         let (state, sent_at) = result.map_or((NotificationState::Failed, None), |t| {
@@ -258,9 +259,10 @@ impl Repository {
 
         let q = query!(
             r#"UPDATE notification_queue
-            SET state = $2, sent_at = $3
-            WHERE notification_id = $1"#,
+            SET state = $3, sent_at = $4
+            WHERE notification_id = $1 AND planned_at = $2"#,
             id,
+            planned_at,
             state as NotificationState,
             sent_at
         );

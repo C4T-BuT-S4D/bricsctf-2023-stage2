@@ -101,7 +101,7 @@ impl Notifier {
 
             if let Err(e) = self
                 .repository
-                .save_notification_result(&notification.id, send_result)
+                .save_notification_result(&notification.id, notification.planned_at, send_result)
                 .await
             {
                 error!(
@@ -145,7 +145,7 @@ impl Connection {
         };
 
         connection
-            .send_message(format!("HELO {}", &connection.server_name), 1)
+            .send_message(format!("HELO {}", &connection.server_name), 2)
             .await
             .with_context(|| "sending HELO")?;
 
@@ -207,7 +207,7 @@ impl Connection {
             .await
             .with_context(|| "sending RCPT TO")?;
 
-        self.send_message("DATA".into(), 2)
+        self.send_message("DATA".into(), 1)
             .await
             .with_context(|| "sending DATA")?;
 
