@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+NOTIFIER_PASSWORD=$(openssl rand -hex 32)
+NOTIFIER_PASSWORD_HASH_SALT=$(openssl rand -hex 16)
+NOTIFIER_PASSWORD_HASH_PBKDF2=$(openssl kdf -keylen 32 -kdfopt digest:SHA512 -kdfopt "pass:${NOTIFIER_PASSWORD}" -kdfopt "salt:${NOTIFIER_PASSWORD_HASH_SALT}" -kdfopt iter:10000 -binary PBKDF2 | base64 | sed 's/=//g')
+NOTIFIER_PASSWORD_HASH_PHC="\$pbkdf2-sha512\$i=10000\$$(echo -n $NOTIFIER_PASSWORD_HASH_SALT | base64 | sed 's/=//g')\$${NOTIFIER_PASSWORD_HASH_PBKDF2}"
+
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
 	CREATE TABLE account (
 		username text NOT NULL,
@@ -36,12 +41,18 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 		CONSTRAINT notification_queue_notification_id_fk FOREIGN KEY (notification_id) REFERENCES notification (id)
 	);
 
+	INSERT INTO account (username, password_hash)
+	VALUES ('notifier', '$NOTIFIER_PASSWORD_HASH_PHC');
+
+	INSERT INTO group_member (username, group_name)
+	VALUES ('notifier', 'superusers');
+
 	CREATE USER notify WITH PASSWORD 'notify-password';
 	CREATE USER stalwart WITH PASSWORD 'stalwart-password';
 
-	GRANT SELECT, INSERT, DELETE ON TABLE account TO notify;
-	GRANT INSERT ON TABLE group_member TO notify;
-	GRANT SELECT ON TABLE account, group_member TO stalwart;
-	GRANT SELECT, INSERT, DELETE ON TABLE notification TO notify;
+	GRANT SELECT, INSERT, DELETE ON TABLE account, notification TO notify;
 	GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE notification_queue TO notify;
+	GRANT SELECT ON TABLE account, group_member TO stalwart;
 EOSQL
+
+echo -n "$NOTIFIER_PASSWORD" > /var/lib/notifier-secret/value

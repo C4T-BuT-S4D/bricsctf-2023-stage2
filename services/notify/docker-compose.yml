@@ -20,7 +20,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
   postgres:
-    image: postgres:16.0-bookworm
+    build: postgres
     deploy:
       resources:
         limits:
@@ -29,6 +29,7 @@ services:
     volumes:
       - ./postgres/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
       - postgres-data:/var/lib/postgresql/data
+      - notifier-secret:/var/lib/notifier-secret
     environment:
       POSTGRES_DB: notify
       POSTGRES_USER: superuser
@@ -43,3 +44,4 @@ services:
 volumes:
   stalwart-data:
   postgres-data:
+  notifier-secret:
