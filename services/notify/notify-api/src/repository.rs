@@ -44,6 +44,15 @@ pub struct NotificationQueueElement {
     pub planned_at: OffsetDateTime,
 }
 
+#[derive(sqlx::Type)]
+#[sqlx(type_name = "notification_state", rename_all = "lowercase")]
+enum NotificationState {
+    Planned,
+    InProgress,
+    Sent,
+    Failed,
+}
+
 impl From<RepoNotification> for Notification {
     fn from(value: RepoNotification) -> Self {
         Self {
@@ -235,6 +244,30 @@ impl Repository {
         let queue_elements = self.timeout(q.fetch_all(&self.pool)).await??;
 
         Ok(queue_elements)
+    }
+
+    /// Save the result for a processed notification.
+    pub async fn save_notification_result(
+        &self,
+        id: &Uuid,
+        result: Option<OffsetDateTime>,
+    ) -> Result<()> {
+        let (state, sent_at) = result.map_or((NotificationState::Failed, None), |t| {
+            (NotificationState::Sent, Some(t))
+        });
+
+        let q = query!(
+            r#"UPDATE notification_queue
+            SET state = $2, sent_at = $3
+            WHERE notification_id = $1"#,
+            id,
+            state as NotificationState,
+            sent_at
+        );
+
+        self.timeout(q.execute(&self.pool)).await??;
+
+        Ok(())
     }
 
     fn timeout<F>(&self, f: F) -> Timeout<F>

@@ -59,6 +59,7 @@ async fn run() -> Result<()> {
         NOTIFIER_USERNAME.into(),
         NOTIFIER_DOMAIN.into(),
         NOTIFIER_SERVER_NAME.into(),
+        cfg.notifier_server_addr.clone(),
     )
     .await?;
 

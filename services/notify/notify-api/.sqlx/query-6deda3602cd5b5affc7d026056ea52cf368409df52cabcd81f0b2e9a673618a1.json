@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE notification_queue\n            SET state = $2, sent_at = $3\n            WHERE notification_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "notification_state",
+            "kind": {
+              "Enum": [
+                "planned",
+                "inprogress",
+                "sent",
+                "failed"
+              ]
+            }
+          }
+        },
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6deda3602cd5b5affc7d026056ea52cf368409df52cabcd81f0b2e9a673618a1"
+}
