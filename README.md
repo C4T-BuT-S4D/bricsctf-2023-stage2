@@ -10,8 +10,7 @@ Development workflow:
 4) Up your service with `SERVICE=$SERVICE ./check.py up`.
 5) Check your service with `SERVICE=$SERVICE RUNS=200 ./check.py check`.
 6) Down your service with `SERVICE=$SERVICE ./check.py down`.
-7) Add your service to `.github/workflows/check-services.yml`, line 38.
-8) Push your code and create pull request to master branch.
+7) Push your code and create pull request to master branch.
 
 Don't forget to:
 1) Add your checker requirements to `checkers/requirements.txt`.
