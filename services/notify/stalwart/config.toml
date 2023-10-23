@@ -83,6 +83,10 @@ spf.verify.mail-from = "disable"
 duration = "30m"
 timeout = "10m"
 
+[session.extensions]
+expn = false
+vrfy = false
+
 [session.mail]
 script = "mail_from_notifier"
 
