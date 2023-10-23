@@ -1,5 +1,4 @@
 use crate::app::{self, JsonError, LoggedError, Validate, ValidatedJson};
-use crate::repository;
 use crate::rng::APP_RNG;
 use crate::session::Session;
 
@@ -47,7 +46,7 @@ impl Validate for RegistrationRequest {
     }
 }
 
-/// Handler implementing the /register API endpoint.
+/// Handler implementing the POST /register API endpoint.
 pub async fn handler(
     State(state): State<app::State>,
     ValidatedJson(request): ValidatedJson<RegistrationRequest>,
@@ -60,10 +59,7 @@ pub async fn handler(
 
     let created = state
         .repository
-        .create_account(&repository::Account {
-            username: request.username.clone(),
-            password_hash: password_hash.to_string(),
-        })
+        .create_account(&request.username, &password_hash.to_string())
         .await
         .with_context(|| "creating account")?;
 

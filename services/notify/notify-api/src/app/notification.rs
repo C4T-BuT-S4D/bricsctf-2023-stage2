@@ -11,8 +11,45 @@ use time::{format_description::well_known::Iso8601, Duration, OffsetDateTime};
 use uuid::Uuid;
 
 #[serde_as]
+#[derive(Clone, Serialize)]
+struct NotificationPlan {
+    #[serde_as(as = "Iso8601")]
+    planned_at: OffsetDateTime,
+    #[serde_as(as = "Option<Iso8601>")]
+    sent_at: Option<OffsetDateTime>,
+}
+
+impl From<repository::NotificationPlan> for NotificationPlan {
+    fn from(value: repository::NotificationPlan) -> Self {
+        Self {
+            planned_at: value.planned_at,
+            sent_at: value.sent_at,
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
+pub struct Notification {
+    id: Uuid,
+    title: String,
+    content: String,
+    plan: Vec<NotificationPlan>,
+}
+
+impl From<repository::Notification> for Notification {
+    fn from(value: repository::Notification) -> Self {
+        Self {
+            id: value.id,
+            title: value.title,
+            content: value.content,
+            plan: value.plan.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[serde_as]
 #[derive(Clone, Deserialize)]
-pub struct CreateNotificationRepetitions {
+struct CreateNotificationRepetitions {
     count: u32,
     #[serde_as(as = "DurationSeconds<i64>")]
     interval: Duration,
@@ -74,6 +111,7 @@ impl Validate for CreateNotificationRequest {
     }
 }
 
+/// Handler implementing the POST /notifications API endpoint.
 pub async fn create_handler(
     State(state): State<app::State>,
     Extension(session): Extension<Session>,
@@ -83,16 +121,16 @@ pub async fn create_handler(
         .repository
         .create_notification(
             &session.username,
-            &repository::Notification {
-                title: request.title,
-                content: request.content,
+            repository::NotificationCreationOpts {
+                title: &request.title,
+                content: &request.content,
                 notify_at: request.notify_at,
-                repetitions: request
-                    .repetitions
-                    .map(|r| repository::NotificationRepetitions {
+                repetitions: request.repetitions.map(|r| {
+                    repository::NotificationCreationRepetitions {
                         count: r.count,
                         interval: r.interval,
-                    }),
+                    }
+                }),
             },
         )
         .await
@@ -101,22 +139,13 @@ pub async fn create_handler(
     Ok(Json(CreateNotificationResponse { notification_id }))
 }
 
-#[serde_as]
-#[derive(Clone, Serialize)]
-pub struct GetNotificationPlan {
-    #[serde_as(as = "Iso8601")]
-    pub planned_at: OffsetDateTime,
-    #[serde_as(as = "Option<Iso8601>")]
-    pub sent_at: Option<OffsetDateTime>,
-}
-
 #[derive(Clone, Serialize)]
 pub struct GetNotificationResponse {
-    pub title: String,
-    pub content: String,
-    pub plan: Vec<GetNotificationPlan>,
+    title: String,
+    plan: Vec<NotificationPlan>,
 }
 
+/// Handler implementing the GET /notification/:notification_id API endpoint.
 pub async fn get_handler(
     State(state): State<app::State>,
     Path(notification_id): Path<String>,
@@ -149,15 +178,7 @@ pub async fn get_handler(
         StatusCode::OK,
         Ok(Json(GetNotificationResponse {
             title: notification_info.title,
-            content: notification_info.content,
-            plan: notification_info
-                .plan
-                .iter()
-                .map(|ni| GetNotificationPlan {
-                    planned_at: ni.planned_at,
-                    sent_at: ni.sent_at,
-                })
-                .collect(),
+            plan: notification_info.plan.into_iter().map(From::from).collect(),
         })),
     ))
 }

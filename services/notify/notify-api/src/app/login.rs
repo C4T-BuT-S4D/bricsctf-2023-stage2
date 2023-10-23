@@ -19,22 +19,22 @@ pub struct LoginRequest {
     password: String,
 }
 
-/// Handler implementing the /login API endpoint.
+/// Handler implementing the POST /login API endpoint.
 pub async fn handler(
     State(state): State<app::State>,
     Json(request): Json<LoginRequest>,
 ) -> Result<(StatusCode, Result<Extension<Session>, JsonError>), LoggedError> {
-    let account = state
+    let repo_pwd_hash = state
         .repository
-        .get_account(&request.username)
+        .get_account_password_hash(&request.username)
         .await
         .with_context(|| format!("getting account {}", &request.username))?;
 
     // Use dummy hash if user wasn't found to avoid user enumeration by response timing.
-    let password_hash = match account {
-        Some(ref acc) => PasswordHash::new(&acc.password_hash)
+    let password_hash = match repo_pwd_hash {
+        Some(ref password_hash) => PasswordHash::new(password_hash)
             .map_err(anyhow::Error::msg)
-            .with_context(|| format!("parsing account {} hash", &acc.username))?,
+            .with_context(|| format!("parsing account {} password hash", &request.username))?,
         None => (*DUMMY_PASSWORD_HASH).clone(),
     };
 
@@ -42,7 +42,7 @@ pub async fn handler(
     if Argon2::default()
         .verify_password(request.password.as_bytes(), &password_hash)
         .is_err()
-        || account.is_none()
+        || repo_pwd_hash.is_none()
     {
         return Ok((
             StatusCode::UNAUTHORIZED,

@@ -13,6 +13,8 @@ use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::{error, info, warn, Level};
 
+const MAX_USER_AGE: time::Duration = time::Duration::minutes(30);
+
 #[tokio::main]
 async fn main() -> process::ExitCode {
     let json_subscriber = tracing_subscriber::fmt()
@@ -57,7 +59,7 @@ async fn run() -> Result<()> {
                         .on_request(DefaultOnRequest::new().level(Level::INFO))
                         .on_response(DefaultOnResponse::new().level(Level::INFO)),
                 )
-                .layer(session::layer(&cfg.cookie_key_path)?),
+                .layer(session::layer(&cfg.cookie_key_path, MAX_USER_AGE)?),
         )
         .with_state(state);
 

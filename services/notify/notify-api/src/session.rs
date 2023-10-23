@@ -14,7 +14,6 @@ use tower::{Layer, Service};
 use tracing::{error, info};
 
 const SESSION_COOKIE_NAME: &str = "notify_session";
-const SESSION_COOKIE_AGE: Duration = Duration::minutes(30);
 
 /// Session contains the session information accessible by the app handlers.
 #[derive(Clone, Deserialize, Serialize)]
@@ -34,6 +33,7 @@ struct WrappedSession {
 /// and save a new session by returning Extension<Session>.
 pub fn layer<B: HttpBody + Send + 'static>(
     cookie_key_path: &str,
+    session_age: Duration,
 ) -> Result<
     impl Layer<
             Route<B>,
@@ -73,7 +73,7 @@ pub fn layer<B: HttpBody + Send + 'static>(
                 let response = next.run(request).await;
 
                 if let Some(session) = response.extensions().get::<Session>() {
-                    let expires_at = OffsetDateTime::now_utc() + SESSION_COOKIE_AGE;
+                    let expires_at = OffsetDateTime::now_utc() + session_age;
 
                     let serialized_session = serde_json::to_string(&WrappedSession {
                         inner: session.clone(),

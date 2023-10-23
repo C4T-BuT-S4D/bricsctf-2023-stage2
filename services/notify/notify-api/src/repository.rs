@@ -1,25 +1,27 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use sqlx::{postgres::PgPoolOptions, query, query_as, PgPool};
 use std::{future::Future, time::Duration};
 use time::OffsetDateTime;
 use tokio::time::{timeout, Timeout};
 use uuid::Uuid;
 
-pub struct Account {
-    pub username: String,
-    pub password_hash: String,
-}
-
-pub struct NotificationRepetitions {
+pub struct NotificationCreationRepetitions {
     pub count: u32,
     pub interval: time::Duration,
 }
 
-pub struct Notification {
-    pub title: String,
-    pub content: String,
+pub struct NotificationCreationOpts<'a> {
+    pub title: &'a str,
+    pub content: &'a str,
     pub notify_at: OffsetDateTime,
-    pub repetitions: Option<NotificationRepetitions>,
+    pub repetitions: Option<NotificationCreationRepetitions>,
+}
+
+struct RepoNotification {
+    id: Uuid,
+    title: String,
+    content: String,
+    plan: Vec<(OffsetDateTime, Option<OffsetDateTime>)>,
 }
 
 pub struct NotificationPlan {
@@ -27,10 +29,29 @@ pub struct NotificationPlan {
     pub sent_at: Option<OffsetDateTime>,
 }
 
-pub struct NotificationInfo {
+pub struct Notification {
+    pub id: Uuid,
     pub title: String,
     pub content: String,
     pub plan: Vec<NotificationPlan>,
+}
+
+impl From<RepoNotification> for Notification {
+    fn from(value: RepoNotification) -> Self {
+        Self {
+            id: value.id,
+            title: value.title,
+            content: value.content,
+            plan: value
+                .plan
+                .iter()
+                .map(|(planned_at, sent_at)| NotificationPlan {
+                    planned_at: *planned_at,
+                    sent_at: *sent_at,
+                })
+                .collect(),
+        }
+    }
 }
 
 /// Repository implementation on top of sqlx' postgres pool.
@@ -61,12 +82,12 @@ impl Repository {
         })
     }
 
-    pub async fn create_account(&self, account: &Account) -> Result<bool> {
+    pub async fn create_account(&self, username: &str, password_hash: &str) -> Result<bool> {
         let q = query!(
             r#"INSERT INTO account (username, password_hash)
             VALUES ($1, $2)"#,
-            &account.username,
-            &account.password_hash
+            &username,
+            &password_hash
         );
 
         match self.timeout(q.execute(&self.pool)).await? {
@@ -76,26 +97,25 @@ impl Repository {
         }
     }
 
-    pub async fn get_account(&self, username: &str) -> Result<Option<Account>> {
-        let q = query_as!(
-            Account,
-            r#"SELECT username, password_hash
+    pub async fn get_account_password_hash(&self, username: &str) -> Result<Option<String>> {
+        let q = query!(
+            r#"SELECT password_hash
             FROM account
             WHERE username = $1"#,
             username
         );
 
         match self.timeout(q.fetch_one(&self.pool)).await? {
-            Ok(acc) => Ok(Some(acc)),
+            Ok(acc) => Ok(Some(acc.password_hash)),
             Err(sqlx::Error::RowNotFound) => Ok(None),
             Err(e) => Err(anyhow::Error::new(e)),
         }
     }
 
-    pub async fn create_notification(
+    pub async fn create_notification<'a>(
         &self,
-        username: &str,
-        notification: &Notification,
+        username: &'a str,
+        notification: NotificationCreationOpts<'a>,
     ) -> Result<Uuid> {
         let mut notify_times = vec![notification.notify_at];
         notify_times.extend(&notification.repetitions.as_ref().map_or(vec![], |r| {
@@ -132,13 +152,14 @@ impl Repository {
     pub async fn get_notification_info(
         &self,
         notification_id: &Uuid,
-    ) -> Result<Option<NotificationInfo>> {
-        let q = query!(
+    ) -> Result<Option<Notification>> {
+        let q = query_as!(
+            RepoNotification,
             r#"SELECT
+                n.id,
                 n.title,
                 n.content,
-                ARRAY_AGG(nq.planned_at ORDER BY nq.planned_at) AS "planned_at!",
-                ARRAY_AGG(nq.sent_at ORDER BY nq.planned_at) AS "sent_at!: Vec<Option<OffsetDateTime>>"
+                ARRAY_AGG(ROW(nq.planned_at, nq.sent_at) ORDER BY nq.planned_at) AS "plan!: Vec<(OffsetDateTime, Option<OffsetDateTime>)>"
             FROM notification n
             JOIN notification_queue nq ON nq.notification_id = n.id
             WHERE n.id = $1
@@ -152,27 +173,27 @@ impl Repository {
             Err(e) => return Err(anyhow::Error::new(e)),
         };
 
-        if notification_info.planned_at.len() != notification_info.sent_at.len() {
-            bail!(
-                "planned_at ({} elements) and sent_at ({} elements) have different length",
-                notification_info.planned_at.len(),
-                notification_info.sent_at.len()
-            );
-        }
+        Ok(Some(notification_info.into()))
+    }
 
-        Ok(Some(NotificationInfo {
-            title: notification_info.title,
-            content: notification_info.content,
-            plan: notification_info
-                .planned_at
-                .iter()
-                .zip(notification_info.sent_at.iter())
-                .map(|(planned_at, sent_at)| NotificationPlan {
-                    planned_at: *planned_at,
-                    sent_at: *sent_at,
-                })
-                .collect(),
-        }))
+    pub async fn list_user_notifications(&self, username: &str) -> Result<Vec<Notification>> {
+        let q = query_as!(
+            RepoNotification,
+            r#"SELECT
+                n.id,
+                n.title,
+                n.content,
+                ARRAY_AGG(ROW(nq.planned_at, nq.sent_at) ORDER BY nq.planned_at) AS "plan!: Vec<(OffsetDateTime, Option<OffsetDateTime>)>"
+            FROM notification n
+            JOIN notification_queue nq ON nq.notification_id = n.id
+            WHERE n.username = $1
+            GROUP BY n.id"#,
+            username
+        );
+
+        let notifications = self.timeout(q.fetch_all(&self.pool)).await??;
+
+        Ok(notifications.into_iter().map(Into::into).collect())
     }
 
     fn timeout<F>(&self, f: F) -> Timeout<F>

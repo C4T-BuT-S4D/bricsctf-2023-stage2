@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                n.id,\n                n.title,\n                n.content,\n                ARRAY_AGG(ROW(nq.planned_at, nq.sent_at) ORDER BY nq.planned_at) AS \"plan!: Vec<(OffsetDateTime, Option<OffsetDateTime>)>\"\n            FROM notification n\n            JOIN notification_queue nq ON nq.notification_id = n.id\n            WHERE n.id = $1\n            GROUP BY n.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "plan!: Vec<(OffsetDateTime, Option<OffsetDateTime>)>",
+        "type_info": "RecordArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "de838c4961f460e157189f82cd4a2f128baf855b3beab66c68270c045a6dd682"
+}
