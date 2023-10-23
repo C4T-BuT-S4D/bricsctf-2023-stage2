@@ -1,8 +1,8 @@
-use crate::app::{self, JsonError, LoggedError};
+use crate::app::{self, LoggedError};
 use crate::session::Session;
 
-use anyhow::Context;
-use axum::{extract::State, http::StatusCode, Extension, Json};
+use anyhow::{anyhow, Context};
+use axum::{extract::State, Extension, Json};
 use serde::Serialize;
 
 #[derive(Clone, Serialize)]
@@ -14,21 +14,18 @@ pub struct UserResponse {
 pub async fn handler(
     State(state): State<app::State>,
     Extension(session): Extension<Session>,
-) -> Result<(StatusCode, Result<Json<UserResponse>, JsonError>), LoggedError> {
+) -> Result<Json<UserResponse>, LoggedError> {
     let account = state
         .repository
         .get_account(&session.username)
         .await
         .with_context(|| format!("getting account {}", &session.username))?
-        .ok_or(anyhow::Error::msg(format!(
+        .ok_or(anyhow!(
             "account {} for valid session not found",
             &session.username
-        )))?;
+        ))?;
 
-    Ok((
-        StatusCode::OK,
-        Ok(Json(UserResponse {
-            username: account.username,
-        })),
-    ))
+    Ok(Json(UserResponse {
+        username: account.username,
+    }))
 }

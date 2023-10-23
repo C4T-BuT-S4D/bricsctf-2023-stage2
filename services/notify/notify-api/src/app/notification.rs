@@ -1,9 +1,10 @@
-use crate::app::{self, LoggedError, Validate, ValidatedJson};
+use crate::app::{self, JsonError, LoggedError, Validate, ValidatedJson};
 use crate::repository;
 use crate::session::Session;
 
 use anyhow::Context;
-use axum::{extract::State, Extension, Json};
+use axum::extract::{Path, State};
+use axum::{http::StatusCode, Extension, Json};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use time::{format_description::well_known::Iso8601, Duration, OffsetDateTime};
@@ -85,7 +86,7 @@ pub async fn create_handler(
             &repository::Notification {
                 title: request.title,
                 content: request.content,
-                planned_at: request.notify_at,
+                notify_at: request.notify_at,
                 repetitions: request
                     .repetitions
                     .map(|r| repository::NotificationRepetitions {
@@ -98,4 +99,65 @@ pub async fn create_handler(
         .with_context(|| "creating notification")?;
 
     Ok(Json(CreateNotificationResponse { notification_id }))
+}
+
+#[serde_as]
+#[derive(Clone, Serialize)]
+pub struct GetNotificationPlan {
+    #[serde_as(as = "Iso8601")]
+    pub planned_at: OffsetDateTime,
+    #[serde_as(as = "Option<Iso8601>")]
+    pub sent_at: Option<OffsetDateTime>,
+}
+
+#[derive(Clone, Serialize)]
+pub struct GetNotificationResponse {
+    pub title: String,
+    pub content: String,
+    pub plan: Vec<GetNotificationPlan>,
+}
+
+pub async fn get_handler(
+    State(state): State<app::State>,
+    Path(notification_id): Path<String>,
+) -> Result<(StatusCode, Result<Json<GetNotificationResponse>, JsonError>), LoggedError> {
+    const NOTIFICATION_NOT_FOUND_ERROR: &str =
+        "We weren't able to find notification you requested! Please check that the URL is correct.";
+
+    // Manual parsing to return JSON error with 404 instead of 400
+    let Ok(notification_id) = Uuid::try_parse(&notification_id) else {
+        return Ok((
+            StatusCode::NOT_FOUND,
+            Err(JsonError::new(NOTIFICATION_NOT_FOUND_ERROR)),
+        ));
+    };
+
+    let notification_info = state
+        .repository
+        .get_notification_info(&notification_id)
+        .await
+        .with_context(|| format!("getting notification {}", &notification_id))?;
+
+    let Some(notification_info) = notification_info else {
+        return Ok((
+            StatusCode::NOT_FOUND,
+            Err(JsonError::new(NOTIFICATION_NOT_FOUND_ERROR)),
+        ));
+    };
+
+    Ok((
+        StatusCode::OK,
+        Ok(Json(GetNotificationResponse {
+            title: notification_info.title,
+            content: notification_info.content,
+            plan: notification_info
+                .plan
+                .iter()
+                .map(|ni| GetNotificationPlan {
+                    planned_at: ni.planned_at,
+                    sent_at: ni.sent_at,
+                })
+                .collect(),
+        })),
+    ))
 }

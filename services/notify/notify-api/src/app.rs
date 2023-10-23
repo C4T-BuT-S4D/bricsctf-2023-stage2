@@ -101,7 +101,11 @@ async fn authentication_layer<B>(
 pub fn router() -> Router<State> {
     let unauthenticated_router = Router::new()
         .route("/register", routing::post(register::handler))
-        .route("/login", routing::post(login::handler));
+        .route("/login", routing::post(login::handler))
+        .route(
+            "/notification/:notification_id",
+            routing::get(notification::get_handler),
+        );
 
     let authenticated_router = Router::new()
         .route("/user", routing::get(user::handler))

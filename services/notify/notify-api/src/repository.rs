@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use sqlx::{postgres::PgPoolOptions, query, query_as, PgPool};
 use std::{future::Future, time::Duration};
 use time::OffsetDateTime;
@@ -18,8 +18,19 @@ pub struct NotificationRepetitions {
 pub struct Notification {
     pub title: String,
     pub content: String,
-    pub planned_at: OffsetDateTime,
+    pub notify_at: OffsetDateTime,
     pub repetitions: Option<NotificationRepetitions>,
+}
+
+pub struct NotificationPlan {
+    pub planned_at: OffsetDateTime,
+    pub sent_at: Option<OffsetDateTime>,
+}
+
+pub struct NotificationInfo {
+    pub title: String,
+    pub content: String,
+    pub plan: Vec<NotificationPlan>,
 }
 
 /// Repository implementation on top of sqlx' postgres pool.
@@ -86,10 +97,10 @@ impl Repository {
         username: &str,
         notification: &Notification,
     ) -> Result<Uuid> {
-        let mut notify_times = vec![notification.planned_at];
+        let mut notify_times = vec![notification.notify_at];
         notify_times.extend(&notification.repetitions.as_ref().map_or(vec![], |r| {
             (1..=r.count)
-                .map(|i| notification.planned_at + i * r.interval)
+                .map(|i| notification.notify_at + i * r.interval)
                 .collect()
         }));
 
@@ -116,6 +127,52 @@ impl Repository {
         self.timeout(tx.commit()).await??;
 
         Ok(notification_id)
+    }
+
+    pub async fn get_notification_info(
+        &self,
+        notification_id: &Uuid,
+    ) -> Result<Option<NotificationInfo>> {
+        let q = query!(
+            r#"SELECT
+                n.title,
+                n.content,
+                ARRAY_AGG(nq.planned_at ORDER BY nq.planned_at) AS "planned_at!",
+                ARRAY_AGG(nq.sent_at ORDER BY nq.planned_at) AS "sent_at!: Vec<Option<OffsetDateTime>>"
+            FROM notification n
+            JOIN notification_queue nq ON nq.notification_id = n.id
+            WHERE n.id = $1
+            GROUP BY n.id"#,
+            notification_id
+        );
+
+        let notification_info = match self.timeout(q.fetch_one(&self.pool)).await? {
+            Ok(ni) => ni,
+            Err(sqlx::Error::RowNotFound) => return Ok(None),
+            Err(e) => return Err(anyhow::Error::new(e)),
+        };
+
+        if notification_info.planned_at.len() != notification_info.sent_at.len() {
+            bail!(
+                "planned_at ({} elements) and sent_at ({} elements) have different length",
+                notification_info.planned_at.len(),
+                notification_info.sent_at.len()
+            );
+        }
+
+        Ok(Some(NotificationInfo {
+            title: notification_info.title,
+            content: notification_info.content,
+            plan: notification_info
+                .planned_at
+                .iter()
+                .zip(notification_info.sent_at.iter())
+                .map(|(planned_at, sent_at)| NotificationPlan {
+                    planned_at: *planned_at,
+                    sent_at: *sent_at,
+                })
+                .collect(),
+        }))
     }
 
     fn timeout<F>(&self, f: F) -> Timeout<F>
