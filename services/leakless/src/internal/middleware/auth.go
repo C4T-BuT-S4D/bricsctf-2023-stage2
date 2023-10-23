@@ -34,7 +34,7 @@ func Auth(c *fiber.Ctx) error {
 
 	var company models.Company
 
-	q := db.DB.Find(&company, "id = ?", companyID)
+	q := db.DB.Take(&company, "id = ?", companyID)
 	if q.Error != nil && !errors.Is(q.Error, gorm.ErrRecordNotFound) {
 		return q.Error
 	}

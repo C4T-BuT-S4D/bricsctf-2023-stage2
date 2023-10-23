@@ -63,7 +63,7 @@ func QueryCompany(c *fiber.Ctx) error {
 	}
 
 	var company models.Company
-	q := db.DB.Preload("Documents").Find(&company, query[0], query[0])
+	q := db.DB.Preload("Documents").Take(&company, query[0], query[1])
 	if q.Error != nil && !errors.Is(q.Error, gorm.ErrRecordNotFound) {
 		return q.Error
 	}
@@ -72,6 +72,7 @@ func QueryCompany(c *fiber.Ctx) error {
 	}
 
 	return util.Success(c, fiber.StatusOK, types.GetCompanyResponse{
+		ID:          company.ID,
 		Login:       company.Login,
 		Name:        company.Name,
 		DocumentIDs: util.GetCompanyDocumentIDs(&company),
@@ -81,14 +82,17 @@ func QueryCompany(c *fiber.Ctx) error {
 func GetCompanies(c *fiber.Ctx) error {
 	offsetStr := c.Query("offset")
 	offset, err := strconv.Atoi(offsetStr)
-	if err != nil {
+	if err != nil || offset < 0 {
 		return util.Fail(c, fiber.StatusBadRequest, "invalid offset")
 	}
 
 	limitStr := c.Query("limit")
 	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
+	if err != nil || limit < 0 {
 		return util.Fail(c, fiber.StatusBadRequest, "invalid limit")
+	}
+	if limit > 100 {
+		return util.Fail(c, fiber.StatusBadRequest, "limit too big")
 	}
 
 	var companies []models.Company
@@ -100,6 +104,7 @@ func GetCompanies(c *fiber.Ctx) error {
 
 	for _, company := range companies {
 		response.Companies = append(response.Companies, types.GetCompanyResponse{
+			ID:          company.ID,
 			Login:       company.Login,
 			Name:        company.Name,
 			DocumentIDs: util.GetCompanyDocumentIDs(&company),
@@ -147,7 +152,7 @@ func PutDoc(c *fiber.Ctx) error {
 	}
 
 	var company models.Company
-	q := db.DB.Find(&company, "id = ?", companyID)
+	q := db.DB.Take(&company, "id = ?", companyID)
 	if q.Error != nil && !errors.Is(q.Error, gorm.ErrRecordNotFound) {
 		return q.Error
 	}

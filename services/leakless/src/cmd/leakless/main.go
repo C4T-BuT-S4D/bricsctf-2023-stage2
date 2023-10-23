@@ -32,7 +32,7 @@ func main() {
 	app.Delete("/me/secret/:secret_id", middleware.Auth, routes.DeleteSecret)
 
 	app.Get("/company/:company_id", routes.GetCompany)
-	app.Get("/query_company", routes.QueryCompany)
+	app.Post("/query_company", routes.QueryCompany)
 	app.Get("/companies", routes.GetCompanies)
 	app.Get("/company/:company_id/hashes", routes.GetHashes)
 	app.Put("/company/:company_id/doc", routes.PutDoc)

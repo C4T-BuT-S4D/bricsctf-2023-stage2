@@ -131,7 +131,7 @@ func DeleteSecret(c *fiber.Ctx) error {
 	}
 
 	var secret models.Secret
-	q := db.DB.Find(&secret, "id = ?", secretID)
+	q := db.DB.Take(&secret, "id = ?", secretID)
 	if q.Error != nil && !errors.Is(q.Error, gorm.ErrRecordNotFound) {
 		return q.Error
 	}

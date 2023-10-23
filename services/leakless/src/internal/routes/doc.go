@@ -52,7 +52,7 @@ func GetSanitizedDocument(c *fiber.Ctx) error {
 	}
 
 	var document models.Document
-	q := db.DB.Find(&document, "id = ?", documentID)
+	q := db.DB.Take(&document, "id = ?", documentID)
 	if q.Error != nil && !errors.Is(q.Error, gorm.ErrRecordNotFound) {
 		return q.Error
 	}
