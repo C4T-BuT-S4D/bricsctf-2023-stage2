@@ -36,6 +36,14 @@ pub struct Notification {
     pub plan: Vec<NotificationPlan>,
 }
 
+pub struct NotificationQueueElement {
+    pub id: Uuid,
+    pub username: String,
+    pub title: String,
+    pub content: String,
+    pub planned_at: OffsetDateTime,
+}
+
 impl From<RepoNotification> for Notification {
     fn from(value: RepoNotification) -> Self {
         Self {
@@ -82,6 +90,7 @@ impl Repository {
         })
     }
 
+    /// Create a new account, returning true if an account with such username already exists.
     pub async fn create_account(&self, username: &str, password_hash: &str) -> Result<bool> {
         let q = query!(
             r#"INSERT INTO account (username, password_hash)
@@ -97,6 +106,7 @@ impl Repository {
         }
     }
 
+    /// Get the password hash of an account by its username, returning None, if no account with such username exists.
     pub async fn get_account_password_hash(&self, username: &str) -> Result<Option<String>> {
         let q = query!(
             r#"SELECT password_hash
@@ -112,6 +122,7 @@ impl Repository {
         }
     }
 
+    /// Create new notification entry and add all the required notification plans to the queue.
     pub async fn create_notification<'a>(
         &self,
         username: &'a str,
@@ -149,10 +160,8 @@ impl Repository {
         Ok(notification_id)
     }
 
-    pub async fn get_notification_info(
-        &self,
-        notification_id: &Uuid,
-    ) -> Result<Option<Notification>> {
+    /// Get notification by its ID.
+    pub async fn get_notification(&self, notification_id: &Uuid) -> Result<Option<Notification>> {
         let q = query_as!(
             RepoNotification,
             r#"SELECT
@@ -176,6 +185,7 @@ impl Repository {
         Ok(Some(notification_info.into()))
     }
 
+    /// List notifications belonging to the specified user.
     pub async fn list_user_notifications(&self, username: &str) -> Result<Vec<Notification>> {
         let q = query_as!(
             RepoNotification,
@@ -194,6 +204,37 @@ impl Repository {
         let notifications = self.timeout(q.fetch_all(&self.pool)).await??;
 
         Ok(notifications.into_iter().map(Into::into).collect())
+    }
+
+    /// Reset the "inprogress" entries of the notification queue in order to retry them.
+    pub async fn reset_notification_queue(&self) -> Result<()> {
+        let q = query!(
+            r#"UPDATE notification_queue
+            SET state = 'planned'
+            WHERE state = 'inprogress'"#
+        );
+
+        self.timeout(q.execute(&self.pool)).await??;
+
+        Ok(())
+    }
+
+    /// Reserve the next batch of enqueued notifications which should've been sent by now.
+    pub async fn reserve_notification_queue_batch(&self) -> Result<Vec<NotificationQueueElement>> {
+        let q = query_as!(
+            NotificationQueueElement,
+            r#"UPDATE notification_queue nq
+            SET state = 'inprogress'
+            FROM notification n
+            WHERE nq.notification_id = n.id
+              AND nq.planned_at < NOW()
+              AND nq.state = 'planned'
+            RETURNING n.id, n.username, n.title, n.content, nq.planned_at"#
+        );
+
+        let queue_elements = self.timeout(q.fetch_all(&self.pool)).await??;
+
+        Ok(queue_elements)
     }
 
     fn timeout<F>(&self, f: F) -> Timeout<F>

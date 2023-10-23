@@ -17,7 +17,8 @@ use tracing::{error, info, warn, Level};
 const MAX_USER_AGE: time::Duration = time::Duration::minutes(30);
 const NOTIFIER_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 const NOTIFIER_USERNAME: &str = "notifier";
-const NOTIFIER_HOSTNAME: &str = "notify";
+const NOTIFIER_DOMAIN: &str = "notify";
+const NOTIFIER_SERVER_NAME: &str = "mail.notify";
 
 #[tokio::main]
 async fn main() -> process::ExitCode {
@@ -52,12 +53,17 @@ async fn run() -> Result<()> {
     )
     .await?;
 
+    let notifier = smtp::Notifier::new(
+        repository.clone(),
+        NOTIFIER_INTERVAL,
+        NOTIFIER_USERNAME.into(),
+        NOTIFIER_DOMAIN.into(),
+        NOTIFIER_SERVER_NAME.into(),
+    )
+    .await?;
+
     let notifier = {
-        let f = smtp::notifier(
-            cancel_token.clone(),
-            NOTIFIER_INTERVAL,
-            format!("{}@{}", NOTIFIER_USERNAME, NOTIFIER_HOSTNAME),
-        );
+        let f = notifier.run(cancel_token.clone());
         async move {
             info!("running notifier with a {:?} interval", NOTIFIER_INTERVAL);
             f.await
@@ -79,19 +85,19 @@ async fn run() -> Result<()> {
         )
         .with_state(state);
 
-    let api_server = axum::Server::bind(&cfg.listen_addr).serve(router.into_make_service());
-    let graceful_api_server = {
+    let api_server = {
+        let server = axum::Server::bind(&cfg.listen_addr).serve(router.into_make_service());
         let cancel_token = cancel_token.clone();
         async move {
             info!("serving API on {}", &cfg.listen_addr);
-            api_server
+            server
                 .with_graceful_shutdown(cancel_token.cancelled())
                 .await
         }
     };
 
     let notifier_handle = tokio::spawn(notifier);
-    let api_server_handle = tokio::spawn(graceful_api_server);
+    let api_server_handle = tokio::spawn(api_server);
 
     tokio::select! {
         _ = cancel_token.cancelled() => {}

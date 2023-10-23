@@ -163,7 +163,7 @@ pub async fn get_handler(
 
     let notification_info = state
         .repository
-        .get_notification_info(&notification_id)
+        .get_notification(&notification_id)
         .await
         .with_context(|| format!("getting notification {}", &notification_id))?;
 
