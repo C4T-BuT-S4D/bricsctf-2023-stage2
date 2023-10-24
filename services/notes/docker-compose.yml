@@ -1,0 +1,22 @@
+version: '2.4'
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "4985:4985"
+    cpus: 1
+    pids_limit: 64
+    mem_limit: 512m
+    volumes:
+      - ./storage:/app/storage
+  cleaner:
+    image: c4tbuts4d/dedcleaner:latest
+    restart: unless-stopped
+    volumes:
+      - "./storage:/storage"
+    environment:
+      - DELETE_AFTER=30m
+      - SLEEP=30m
+      - DIRS=/storage
