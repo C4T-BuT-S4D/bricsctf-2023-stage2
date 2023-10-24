@@ -1,0 +1,40 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: app.Dockerfile
+    depends_on:
+        - mongodb
+        - renderer
+    environment:
+      - KTOR_LOG_LEVEL=INFO
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads:/uploads
+    restart: unless-stopped
+    cpus: 1
+    mem_limit: 1024m
+    pids_limit: 4096
+
+  renderer:
+    build:
+      context: .
+      dockerfile: renderer.Dockerfile
+    depends_on:
+      - mongodb
+    volumes:
+      - uploads:/uploads/file
+    restart: unless-stopped
+    cpus: 1
+    mem_limit: 1024m
+    pids_limit: 4096
+
+  mongodb:
+    image: mongo:7.0.2
+    volumes:
+      - dbdata:/data/db
+    restart: unless-stopped
+volumes:
+  dbdata:
+  uploads:
