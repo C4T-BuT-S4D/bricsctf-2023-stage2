@@ -2,7 +2,7 @@
 
 import sys
 import requests
-import pwn
+import pwnlib.tubes
 import time
 
 from checklib import *
@@ -25,7 +25,7 @@ class Checker(BaseChecker):
             self.cquit(Status.DOWN, 'Connection error', 'Got requests connection error')
 
     def check(self):
-        io = pwn.remote(self.mch.c.host, self.mch.port)
+        io = pwnlib.tubes.remote.remote(self.mch.c.host, self.mch.port)
         user1, pass1 = rnd_username(), rnd_password()
 
         self.mch.register(io, user1, pass1, Status.MUMBLE)
@@ -100,7 +100,7 @@ class Checker(BaseChecker):
 
         time.sleep(0.1)
 
-        io = pwn.remote(self.mch.c.host, self.mch.port)
+        io = pwnlib.tubes.remote.remote(self.mch.c.host, self.mch.port)
         self.mch.login(io, user2, pass2, Status.MUMBLE)
 
         notes = self.mch.list_notes(io)
@@ -124,7 +124,7 @@ class Checker(BaseChecker):
         self.cquit(Status.OK)
 
     def put(self, flag_id: str, flag: str, vuln: str):
-        io = pwn.remote(self.mch.c.host, self.mch.port)
+        io = pwnlib.tubes.remote.remote(self.mch.c.host, self.mch.port)
         username, password = rnd_username(), rnd_password()
 
         self.mch.register(io, username, password, Status.MUMBLE)
@@ -139,7 +139,7 @@ class Checker(BaseChecker):
         self.cquit(Status.OK, key.hex(), f'{username}:{password}')
 
     def get(self, flag_id: str, flag: str, vuln: str):
-        io = pwn.remote(self.mch.c.host, self.mch.port)
+        io = pwnlib.tubes.remote.remote(self.mch.c.host, self.mch.port)
         username, password = flag_id.split(':')
 
         self.mch.login(io, username, password, Status.CORRUPT)
