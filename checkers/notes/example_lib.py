@@ -1,4 +1,4 @@
-import pwnlib.tubes
+import pwnlib.tubes.remote
 from checklib import *
 
 PORT = 4985

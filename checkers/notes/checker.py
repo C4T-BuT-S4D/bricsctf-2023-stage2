@@ -2,8 +2,9 @@
 
 import sys
 import requests
-import pwnlib.tubes
 import time
+
+import pwnlib.tubes.remote
 
 from checklib import *
 from example_lib import *
