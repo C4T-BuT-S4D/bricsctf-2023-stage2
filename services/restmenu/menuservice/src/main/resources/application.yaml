@@ -1,0 +1,12 @@
+ktor:
+  application:
+    modules:
+      - org.cbsctf.ApplicationKt.module
+  deployment:
+    port: 8080
+db:
+  connection: "mongodb://mongodb:27017"
+uploads:
+  path: "/uploads"
+renderer:
+  url: "http://renderer:8081"
