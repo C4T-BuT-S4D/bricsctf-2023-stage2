@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import sys
-import requests
 import time
 import copy
 
@@ -143,7 +142,7 @@ class Checker(BaseChecker):
 
             self.mch.exit_(io)
 
-        self.cquit(Status.OK, key.hex(), f'{username}:{password}')
+        self.cquit(Status.OK, '', f'{username}:{password}')
 
     def get(self, flag_id: str, flag: str, vuln: str):
         with self.mch.connection() as io:
