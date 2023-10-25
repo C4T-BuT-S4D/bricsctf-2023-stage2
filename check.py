@@ -173,6 +173,11 @@ class Checker(BaseValidator):
         action = command[1].upper()
         cmd = ["timeout", str(self._timeout)] + command
 
+        if env is None:
+            env = os.environ
+        env["PYTHONUNBUFFERED"] = "1"
+        env["PWNLIB_NOTERM"] = "1"
+
         start = time.monotonic()
         p = subprocess.run(cmd, capture_output=True, check=False, env=env)
         elapsed = time.monotonic() - start
