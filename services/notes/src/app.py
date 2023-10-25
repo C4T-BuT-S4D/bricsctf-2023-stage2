@@ -84,7 +84,7 @@ def logout():
         while i < len(saved_users):
             if saved_users[i] == user:
                 saved_users.pop(i)
-                continue
+                break
             i += 1
     user = None
     print('Success')

