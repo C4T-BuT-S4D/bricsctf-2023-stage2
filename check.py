@@ -78,6 +78,7 @@ FORBIDDEN_CHECKER_PATTERNS = ["requests"]
 ALLOWED_YAML_FILES = [
     "buf.yaml",
     "buf.gen.yaml",
+    "application.yaml",
 ]
 
 
@@ -171,6 +172,11 @@ class Checker(BaseValidator):
     def _run_command(self, command: List[str], env=None) -> Tuple[str, str]:
         action = command[1].upper()
         cmd = ["timeout", str(self._timeout)] + command
+
+        if env is None:
+            env = os.environ
+        env["PYTHONUNBUFFERED"] = "1"
+        env["PWNLIB_NOTERM"] = "1"
 
         start = time.monotonic()
         p = subprocess.run(cmd, capture_output=True, check=False, env=env)
