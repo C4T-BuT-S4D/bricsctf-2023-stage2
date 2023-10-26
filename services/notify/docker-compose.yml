@@ -1,4 +1,26 @@
 services:
+  notify-api:
+    build: notify-api
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    volumes:
+      - notify-api-cookie-key:/notifier/cookie-key
+      - notifier-secret:/notifier/secret
+    environment:
+      LISTEN_ADDR: 0.0.0.0:7777
+      DATABASE_URL: postgresql://notify:notify-password@postgres:5432/notify?sslmode=disable
+      COOKIE_KEY_PATH: /notifier/cookie-key/value
+      NOTIFIER_SECRET_PATH: /notifier/secret/value
+      NOTIFIER_SERVER_ADDR: stalwart:587
+    ports:
+      - 7777:7777
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
   stalwart:
     build: stalwart
     deploy:
@@ -13,8 +35,6 @@ services:
       DATABASE_URL: postgresql://stalwart:stalwart-password@postgres:5432/notify?sslmode=disable
     ports:
       - 143:143 # only leave this IMAP port open, other ports are needed for the Rust service
-      - 587:587
-      - 8080:8080
     depends_on:
       postgres:
         condition: service_healthy
@@ -34,8 +54,6 @@ services:
       POSTGRES_DB: notify
       POSTGRES_USER: superuser
       POSTGRES_PASSWORD: superuser-password
-    ports:
-      - 5432:5432
     healthcheck:
       test: pg_isready -d notify -U superuser
       interval: 5s
@@ -45,3 +63,4 @@ volumes:
   stalwart-data:
   postgres-data:
   notifier-secret:
+  notify-api-cookie-key:

@@ -15,7 +15,7 @@ static USERNAME_RE: Lazy<Regex> = Lazy::new(|| {
 });
 
 #[derive(Clone, Deserialize)]
-pub struct RegistrationRequest {
+pub(super) struct RegistrationRequest {
     username: String,
     password: String,
 }
@@ -47,7 +47,7 @@ impl Validate for RegistrationRequest {
 }
 
 /// Handler implementing the POST /register API endpoint.
-pub async fn handler(
+pub(super) async fn handler(
     State(state): State<app::State>,
     ValidatedJson(request): ValidatedJson<RegistrationRequest>,
 ) -> Result<(StatusCode, Result<Extension<Session>, JsonError>), LoggedError> {

@@ -14,13 +14,13 @@ static DUMMY_PASSWORD_HASH: Lazy<PasswordHash> = Lazy::new(|| {
 });
 
 #[derive(Clone, Deserialize)]
-pub struct LoginRequest {
+pub(super) struct LoginRequest {
     username: String,
     password: String,
 }
 
 /// Handler implementing the POST /login API endpoint.
-pub async fn handler(
+pub(super) async fn handler(
     State(state): State<app::State>,
     Json(request): Json<LoginRequest>,
 ) -> Result<(StatusCode, Result<Extension<Session>, JsonError>), LoggedError> {

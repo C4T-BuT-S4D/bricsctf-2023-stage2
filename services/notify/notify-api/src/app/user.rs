@@ -6,13 +6,13 @@ use axum::{extract::State, Extension, Json};
 use serde::Serialize;
 
 #[derive(Clone, Serialize)]
-pub struct UserResponse {
+pub(super) struct UserResponse {
     username: String,
     notifications: Vec<app::notification::Notification>,
 }
 
 /// Handler implementing the GET /user API endpoint.
-pub async fn handler(
+pub(super) async fn handler(
     State(state): State<app::State>,
     Extension(session): Extension<Session>,
 ) -> Result<Json<UserResponse>, LoggedError> {

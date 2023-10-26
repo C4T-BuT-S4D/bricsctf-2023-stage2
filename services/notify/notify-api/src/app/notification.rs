@@ -29,7 +29,7 @@ impl From<repository::NotificationPlan> for NotificationPlan {
 }
 
 #[derive(Clone, Serialize)]
-pub struct Notification {
+pub(super) struct Notification {
     id: Uuid,
     title: String,
     content: String,
@@ -57,7 +57,7 @@ struct CreateNotificationRepetitions {
 
 #[serde_as]
 #[derive(Clone, Deserialize)]
-pub struct CreateNotificationRequest {
+pub(super) struct CreateNotificationRequest {
     title: String,
     content: String,
     #[serde_as(as = "Iso8601")]
@@ -66,7 +66,7 @@ pub struct CreateNotificationRequest {
 }
 
 #[derive(Clone, Serialize)]
-pub struct CreateNotificationResponse {
+pub(super) struct CreateNotificationResponse {
     notification_id: Uuid,
 }
 
@@ -112,7 +112,7 @@ impl Validate for CreateNotificationRequest {
 }
 
 /// Handler implementing the POST /notifications API endpoint.
-pub async fn create_handler(
+pub(super) async fn create_handler(
     State(state): State<app::State>,
     Extension(session): Extension<Session>,
     ValidatedJson(request): ValidatedJson<CreateNotificationRequest>,
@@ -140,13 +140,13 @@ pub async fn create_handler(
 }
 
 #[derive(Clone, Serialize)]
-pub struct GetNotificationResponse {
+pub(super) struct GetNotificationResponse {
     title: String,
     plan: Vec<NotificationPlan>,
 }
 
 /// Handler implementing the GET /notification/:notification_id API endpoint.
-pub async fn get_handler(
+pub(super) async fn get_handler(
     State(state): State<app::State>,
     Path(notification_id): Path<String>,
 ) -> Result<(StatusCode, Result<Json<GetNotificationResponse>, JsonError>), LoggedError> {
