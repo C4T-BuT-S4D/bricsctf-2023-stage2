@@ -15,11 +15,11 @@ class CheckMachine:
 
     def register(self, session: requests.Session, username: str, password: str):
         resp = session.post(self.url + '/signup', json={'username': username, 'password': password})
-        self.c.assert_eq(resp.status_code, 200, 'Failed to register new user: {}, {}'.format(username, password))
+        self.c.assert_eq(resp.status_code, 200, 'Failed to register')
 
     def login(self, session: requests.Session, username: str, password: str, status: Status):
         resp = session.post(self.url + '/login', json={'username': username, 'password': password})
-        self.c.assert_eq(resp.status_code, 200, 'Failed to login using web', status=status)
+        self.c.assert_eq(resp.status_code, 200, 'Failed to login', status=status)
 
     def upload_file(self, sessions: requests.Session, file_path: str) -> str:
         files = {'upload_file': open(file_path, 'rb')}
@@ -29,7 +29,7 @@ class CheckMachine:
 
     def get_uploaded_files(self, session: requests.Session):
         resp = session.get(self.url + '/file')
-        self.c.assert_eq(resp.status_code, 200, 'Failed to get user indexed files')
+        self.c.assert_eq(resp.status_code, 200, 'Failed to get user uploaded files')
         return get_json(resp, 'Failed to get user uploaded files: invalid JSON returned')
 
     def create_menu(self, session: requests.Session, name: str):
