@@ -67,7 +67,11 @@ impl Notifier {
             .await
             .with_context(|| "reserving batch in notification queue")?;
 
-        info!("notifier reserved batch of {} elements", batch.len());
+        if batch.is_empty() {
+            return Ok(());
+        }
+
+        info!("notifier processing batch of {} elements", batch.len());
 
         let mut connection =
             Connection::connect(self.server_addr.clone(), self.server_name.clone()).await?;

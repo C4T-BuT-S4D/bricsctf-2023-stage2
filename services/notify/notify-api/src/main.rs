@@ -15,7 +15,7 @@ use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, Tr
 use tracing::{error, info, warn, Level};
 
 const MAX_USER_AGE: time::Duration = time::Duration::minutes(30);
-const NOTIFIER_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+const NOTIFIER_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 const NOTIFIER_USERNAME: &str = "notifier";
 const NOTIFIER_DOMAIN: &str = "notify";
 const NOTIFIER_SERVER_NAME: &str = "mail.notify";

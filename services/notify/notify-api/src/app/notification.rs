@@ -74,7 +74,7 @@ impl Validate for CreateNotificationRequest {
     fn validate(&self) -> Result<(), String> {
         if self.title.is_empty() {
             return Err("Please add a title to be used as the subject of your notification".into());
-        } else if self.title.len() > 100 {
+        } else if self.title.len() > 50 {
             return Err("Sorry, but we can't store notifications with such long titles yet! Please shorten it.".into());
         }
 
@@ -82,7 +82,7 @@ impl Validate for CreateNotificationRequest {
             return Err(
                 "Please add the text which will be used as the body of your notification".into(),
             );
-        } else if self.content.len() > 1000 {
+        } else if self.content.len() > 200 {
             return Err("Sorry, but we can't store notifications with such long texts yet! Please shorten the notification's contents.".into());
         }
 
@@ -96,7 +96,7 @@ impl Validate for CreateNotificationRequest {
                     "If repetitions are specified, then their count must be set to at least one."
                         .into(),
                 );
-            } else if repetitions.count > 10 {
+            } else if repetitions.count > 20 {
                 return Err("At the moment we allow repeating notifications only up to 10 additional times, sorry!".into());
             } else if repetitions.interval < Duration::SECOND {
                 return Err(
@@ -116,7 +116,7 @@ pub(super) async fn create_handler(
     State(state): State<app::State>,
     Extension(session): Extension<Session>,
     ValidatedJson(request): ValidatedJson<CreateNotificationRequest>,
-) -> Result<Json<CreateNotificationResponse>, LoggedError> {
+) -> Result<(StatusCode, Json<CreateNotificationResponse>), LoggedError> {
     let notification_id = state
         .repository
         .create_notification(
@@ -136,7 +136,10 @@ pub(super) async fn create_handler(
         .await
         .with_context(|| "creating notification")?;
 
-    Ok(Json(CreateNotificationResponse { notification_id }))
+    Ok((
+        StatusCode::CREATED,
+        Json(CreateNotificationResponse { notification_id }),
+    ))
 }
 
 #[derive(Clone, Serialize)]

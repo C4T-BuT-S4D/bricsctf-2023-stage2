@@ -1,11 +1,9 @@
 services:
   notify-api:
     build: notify-api
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-          memory: 512M
+    cpus: 2
+    mem_limit: 512M
+    pids_limit: 256
     volumes:
       - notify-api-cookie-key:/notifier/cookie-key
       - notifier-secret:/notifier/secret
@@ -23,11 +21,9 @@ services:
     restart: unless-stopped
   stalwart:
     build: stalwart
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-          memory: 512M
+    cpus: 2
+    mem_limit: 512M
+    pids_limit: 256
     volumes:
       - ./stalwart/config.toml:/opt/stalwart-mail/etc/config.toml:ro
       - stalwart-data:/opt/stalwart-mail
@@ -41,11 +37,9 @@ services:
     restart: unless-stopped
   postgres:
     build: postgres
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-          memory: 512M
+    cpus: 2
+    mem_limit: 512M
+    pids_limit: 1024
     volumes:
       - ./postgres/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
       - postgres-data:/var/lib/postgresql/data

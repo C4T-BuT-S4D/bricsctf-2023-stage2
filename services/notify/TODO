@@ -1,0 +1,7 @@
+- smtp.rs: limit batch size in to avoid SMTP server's mails per connection
+- smtp.rs: launch concurrent futures for each iteration
+- smtp.rs: add timeouts
+- smtp.rs: prematurely reconnect when connection has lived for too long
+- smtp.rs: properly support cancellation when iterating
+- Write cleaner to remove users/mail from postgres and stalwart
+- Prettier content (proper text) generation in notification content

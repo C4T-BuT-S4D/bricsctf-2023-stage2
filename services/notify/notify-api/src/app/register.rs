@@ -11,7 +11,7 @@ use regex::Regex;
 use serde::Deserialize;
 
 static USERNAME_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^[a-z0-9][a-z0-9_-]+[a-z0-9]$").expect("failed to construct username regex")
+    Regex::new(r"^[a-z][a-z0-9_-]+[a-z0-9]$").expect("failed to construct username regex")
 });
 
 #[derive(Clone, Deserialize)]
