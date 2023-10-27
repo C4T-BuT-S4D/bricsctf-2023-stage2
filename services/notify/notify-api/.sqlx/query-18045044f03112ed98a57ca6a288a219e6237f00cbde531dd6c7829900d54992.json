@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE notification_queue\n            SET state = 'planned'\n            WHERE state = 'inprogress'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "18045044f03112ed98a57ca6a288a219e6237f00cbde531dd6c7829900d54992"
+}

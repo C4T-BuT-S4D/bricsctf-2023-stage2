@@ -43,6 +43,7 @@ CONTAINER_ALLOWED_OPTIONS = CONTAINER_REQUIRED_OPTIONS + [
     "volumes",
     "environment",
     "env_file",
+    "healthcheck",
     "depends_on",
     "sysctls",
     "privileged",
@@ -71,6 +72,8 @@ ALLOWED_CHECKER_PATTERNS = [
     "s: requests.Session",
     "sess: requests.Session",
     "session: requests.Session",
+    "r: requests.Response",
+    "resp: requests.Response",
     "Got requests connection error",
 ]
 FORBIDDEN_CHECKER_PATTERNS = ["requests"]
@@ -159,7 +162,7 @@ class Checker(BaseValidator):
         self._fatal(
             60 > self._timeout > 0,
             f"invalid timeout: {self._timeout}",
-            )
+        )
 
     @property
     def info(self):
@@ -194,7 +197,7 @@ class Checker(BaseValidator):
         self._fatal(
             p.returncode != 124,
             f"action {action}: bad return code: 124, probably {ColorType.BOLD}timeout{ColorType.ENDC}",
-            )
+        )
         self._fatal(
             p.returncode == 101, f"action {action}: bad return code: {p.returncode}"
         )
@@ -351,13 +354,13 @@ class StructureValidator(BaseValidator):
                 self._error(
                     2.4 <= dc_version < 3,
                     f"invalid version in {path}, need >=2.4 and <3 (or no version at all), got {dc_version}",
-                    )
+                )
 
             for opt in dc:
                 self._error(
                     opt in DC_ALLOWED_OPTIONS,
                     f"option {opt} in {path} is not allowed",
-                    )
+                )
 
             services = []
             databases = []
@@ -381,19 +384,19 @@ class StructureValidator(BaseValidator):
                     self._error(
                         opt in container_conf,
                         f"required option {opt} not in {path} for container {container}",
-                        )
+                    )
 
                 self._error(
                     "restart" in container_conf
                     and container_conf["restart"] == "unless-stopped",
                     f'restart option in {path} for container {container} must be equal to "unless-stopped"',
-                    )
+                )
 
                 for opt in container_conf:
                     self._error(
                         opt in CONTAINER_ALLOWED_OPTIONS,
                         f"option {opt} in {path} is not allowed for container {container}",
-                        )
+                    )
 
                 if self._error(
                     "image" not in container_conf or "build" not in container_conf,
@@ -459,27 +462,27 @@ class StructureValidator(BaseValidator):
                         self._error(
                             opt in container_conf,
                             f"required option {opt} not in {path} for service {container}",
-                            )
+                        )
 
                     for opt in container_conf:
                         self._error(
                             opt in SERVICE_ALLOWED_OPTIONS,
                             f"option {opt} in {path} is not allowed for service {container}",
-                            )
+                        )
 
             for service in services:
                 for database in databases:
                     self._error(
                         service in dependencies and database in dependencies[service],
                         f"service {service} may need to depends_on database {database}",
-                        )
+                    )
 
             for proxy in proxies:
                 for service in services:
                     self._error(
                         proxy in dependencies and service in dependencies[proxy],
                         f"proxy {proxy} may need to depends_on service {service}",
-                        )
+                    )
 
         elif BASE_DIR / "checkers" in f.parents and f.suffix == ".py":
             checker_code = f.read_text()
@@ -576,7 +579,7 @@ def dump_tasks(_args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Validate checkers for A&D. "
-                    "Host & number of runs are passed with HOST and RUNS env vars"
+        "Host & number of runs are passed with HOST and RUNS env vars"
     )
     subparsers = parser.add_subparsers()
 

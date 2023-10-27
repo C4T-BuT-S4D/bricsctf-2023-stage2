@@ -1,0 +1,27 @@
+[package]
+edition = "2021"
+name = "notify-api"
+version = "0.1.0"
+
+[dependencies]
+anyhow = "1.0.75"
+argon2 = "0.5.2"
+axum = "0.6.20"
+axum-extra = { version = "0.8.0", features = ["cookie", "cookie-private"] }
+axum-macros = "0.3.8"
+cookie = { version = "0.17.0", features = ["private"] }
+once_cell = "1.18.0"
+rand_chacha = "0.3.1"
+regex = "1.10.2"
+serde = { version = "1.0.189", features = ["derive"] }
+serde_json = "1.0.107"
+serde_with = { version = "3.4.0", features = ["time_0_3"] }
+sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio", "time", "uuid"] }
+time = { version = "0.3.30", features = ["serde"] }
+tokio = { version = "1.33.0", features = ["full", "net"] }
+tokio-util = "0.7.9"
+tower = "0.4.13"
+tower-http = { version = "0.4.4", features = ["catch-panic", "trace"] }
+tracing = "0.1.39"
+tracing-subscriber = { version = "0.3.17", features = ["json"] }
+uuid = { version = "1.5.0", features = ["serde"] }

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO notification_queue (notification_id, planned_at)\n            SELECT $1, * FROM UNNEST($2::timestamptz[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "59df7bc06d42ea2f8562e803ba3e347f280b905a562fe1c3c2d9e83f62ab662a"
+}

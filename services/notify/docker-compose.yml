@@ -1,0 +1,60 @@
+services:
+  notify-api:
+    build: notify-api
+    cpus: 2
+    mem_limit: 512M
+    pids_limit: 256
+    volumes:
+      - notify-api-cookie-key:/notifier/cookie-key
+      - notifier-secret:/notifier/secret
+    environment:
+      LISTEN_ADDR: 0.0.0.0:7777
+      DATABASE_URL: postgresql://notify:notify-password@postgres:5432/notify?sslmode=disable
+      COOKIE_KEY_PATH: /notifier/cookie-key/value
+      NOTIFIER_SECRET_PATH: /notifier/secret/value
+      NOTIFIER_SERVER_ADDR: stalwart:587
+    ports:
+      - 7777:7777
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+  stalwart:
+    build: stalwart
+    cpus: 2
+    mem_limit: 512M
+    pids_limit: 256
+    volumes:
+      - ./stalwart/config.toml:/opt/stalwart-mail/etc/config.toml:ro
+      - stalwart-data:/opt/stalwart-mail
+    environment:
+      DATABASE_URL: postgresql://stalwart:stalwart-password@postgres:5432/notify?sslmode=disable
+    ports:
+      - 143:143 # only leave this IMAP port open, other ports are needed for the Rust service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+  postgres:
+    build: postgres
+    cpus: 2
+    mem_limit: 512M
+    pids_limit: 1024
+    volumes:
+      - ./postgres/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - postgres-data:/var/lib/postgresql/data
+      - notifier-secret:/var/lib/notifier-secret
+    environment:
+      POSTGRES_DB: notify
+      POSTGRES_USER: superuser
+      POSTGRES_PASSWORD: superuser-password
+    healthcheck:
+      test: pg_isready -d notify -U superuser
+      interval: 5s
+      timeout: 3s
+    restart: unless-stopped
+volumes:
+  stalwart-data:
+  postgres-data:
+  notifier-secret:
+  notify-api-cookie-key:
