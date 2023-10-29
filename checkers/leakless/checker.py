@@ -37,21 +37,26 @@ class Checker(BaseChecker):
             self.cquit(Status.DOWN, 'Connection error', 'Got requests connection error')
 
     def check_unsanitized_document1(self):
-        fake_flag1 = rnd_fake_flag()
-        fake_flag2 = rnd_fake_flag()
+        if random.randint(0, 4) == 0:
+            secret1 = rnd_fake_flag()
+        else:
+            secret1 = rnd_string(20)
+        if random.randint(0, 4) == 0:
+            secret2 = rnd_fake_flag()
+        else:
+            secret2 = rnd_string(20)
 
         session = get_initialized_session()
         name, username, password = rnd_string(20), rnd_username(), rnd_password()
 
         self.mch.register(session, name, username, password, Status.MUMBLE)
-        self.mch.put_secret(session, fake_flag1, Status.MUMBLE)
+        self.mch.put_secret(session, secret1, Status.MUMBLE)
 
         company = self.mch.get_self_company(session, Status.MUMBLE)
-        self.assert_in(fake_flag1, (s.secret for s in company.secrets), "secret missing", Status.MUMBLE)
+        self.assert_in(secret1, (s.secret for s in company.secrets), "secret missing", Status.MUMBLE)
 
-        time.sleep(1)
         session2 = get_initialized_session()
-        document = rnd_document(fake_flag2)
+        document = rnd_document(secret2)
         document_id = self.mch.put_document(session2, company.uid, document, Status.MUMBLE)
 
         sanitized_document = self.mch.get_sanitized_document(session2, document_id, Status.MUMBLE)
@@ -60,26 +65,39 @@ class Checker(BaseChecker):
         self.cquit(Status.OK)
 
     def check_unsanitized_document2(self):
-        fake_flag1 = rnd_fake_flag()
-        fake_flag2 = rnd_fake_flag()
+        if random.randint(0, 4) == 0:
+            secret1 = rnd_fake_flag()
+        else:
+            secret1 = rnd_string(20)
+        if random.randint(0, 4) == 0:
+            secret2 = rnd_fake_flag()
+        else:
+            secret2 = rnd_string(20)
 
         session = get_initialized_session()
         name, username, password = rnd_string(20), rnd_username(), rnd_password()
 
         self.mch.register(session, name, username, password, Status.MUMBLE)
-        self.mch.put_secret(session, fake_flag1, Status.MUMBLE)
-        secret_id = self.mch.put_secret(session, fake_flag2, Status.MUMBLE)
+        self.mch.put_secret(session, secret1, Status.MUMBLE)
+        secret_id = self.mch.put_secret(session, secret2, Status.MUMBLE)
 
         company = self.mch.get_self_company(session, Status.MUMBLE)
-        self.assert_in(fake_flag1, (s.secret for s in company.secrets), "secret missing", Status.MUMBLE)
-        self.assert_in(fake_flag2, (s.secret for s in company.secrets), "secret missing", Status.MUMBLE)
+        self.assert_in(secret1, (s.secret for s in company.secrets), "secret missing", Status.MUMBLE)
+        self.assert_in(secret2, (s.secret for s in company.secrets), "secret missing", Status.MUMBLE)
+
+
+        session2 = get_initialized_session()
+        document = rnd_document(secret2)
+        document_id = self.mch.put_document(session2, company.uid, document, Status.MUMBLE)
+
+        sanitized_document = self.mch.get_sanitized_document(session2, document_id, Status.MUMBLE)
+        self.assert_eq(sanitized_document, document.replace(secret2, "*" * len(secret2)), "document undersanitized", Status.MUMBLE)
+
+        session2 = get_initialized_session()
+        document = rnd_document(secret2)
+        document_id = self.mch.put_document(session2, company.uid, document, Status.MUMBLE)
 
         self.mch.delete_secret(session, secret_id, Status.MUMBLE)
-
-        time.sleep(1)
-        session2 = get_initialized_session()
-        document = rnd_document(fake_flag2)
-        document_id = self.mch.put_document(session2, company.uid, document, Status.MUMBLE)
 
         sanitized_document = self.mch.get_sanitized_document(session2, document_id, Status.MUMBLE)
         self.assert_eq(sanitized_document, document, "document oversanitized", Status.MUMBLE)
