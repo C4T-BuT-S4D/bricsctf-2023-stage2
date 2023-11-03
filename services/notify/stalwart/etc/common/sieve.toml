@@ -1,0 +1,7 @@
+#############################################
+# Sieve trusted runtime configuration
+#############################################
+
+[sieve.trusted.scripts]
+mail_from_notifier = "file://%{BASE_PATH}%/etc/scripts/mail_from_notifier.sieve"
+rcpt_to_notify = "file://%{BASE_PATH}%/etc/scripts/rcpt_to_notify.sieve"

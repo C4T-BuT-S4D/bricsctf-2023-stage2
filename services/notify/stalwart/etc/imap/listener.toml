@@ -1,0 +1,7 @@
+#############################################
+# IMAP server listeners configuration
+#############################################
+
+[server.listener.imap]
+bind = "[::]:143"
+protocol = "imap"

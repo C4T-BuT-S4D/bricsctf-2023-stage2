@@ -1,0 +1,15 @@
+#############################################
+# SMTP server queue configuration
+#############################################
+
+[queue]
+hash = 64
+path = "%{BASE_PATH}%/queue"
+
+[queue.schedule]
+expire = "15m"
+notify = []
+retry = ["1m", "2m", "5m", "10m"]
+
+[queue.outbound]
+next-hop = "local"

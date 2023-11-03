@@ -1,0 +1,34 @@
+#############################################
+# SQL Directory configuration
+#############################################
+
+[directory.postgres]
+address = !DATABASE_URL
+type = "sql"
+
+[directory.postgres.options]
+catch-all = false
+subaddressing = false
+superuser-group = "superusers"
+
+[directory.postgres.pool]
+connect-timeout = "30s"
+idle-timeout = "5m"
+max-connections = 32
+max-lifetime = "10m"
+min-connections = 0
+
+[directory.postgres.cache]
+entries = 500
+ttl = { positive = '10m', negative = '2m' }
+
+[directory.postgres.columns]
+name = "username"
+secret = "password_hash"
+
+[directory.postgres.query]
+domains = "SELECT 'notify'"
+emails = "SELECT a.username || '@notify' FROM account a WHERE a.username = $1"
+members = "SELECT gm.group_name FROM group_member gm WHERE gm.username = $1"
+name = "SELECT a.username, a.password_hash FROM account a WHERE a.username = $1"
+recipients = "SELECT a.username FROM account a WHERE a.username = substring($1, '(.+)@') AND substring($1, '@(.+)') = 'notify'"

@@ -1,0 +1,6 @@
+#############################################
+# JMAP authentication & session configuration
+#############################################
+
+[jmap]
+directory = "postgres"

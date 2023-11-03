@@ -1,0 +1,12 @@
+
+#############################################
+# SMTP DMARC, DKIM, SPF, ARC & IpRev
+#############################################
+
+[auth]
+arc.verify = "disable"
+dkim.verify = "disable"
+dmarc.verify = "disable"
+iprev.verify = "disable"
+spf.verify.ehlo = "disable"
+spf.verify.mail-from = "disable"

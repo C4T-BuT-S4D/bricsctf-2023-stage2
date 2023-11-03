@@ -1,0 +1,7 @@
+#############################################
+# SMTP server listener configuration
+#############################################
+
+[server.listener.submission]
+bind = "[::]:587"
+protocol = "smtp"

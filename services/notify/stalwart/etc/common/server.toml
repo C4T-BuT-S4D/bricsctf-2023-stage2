@@ -1,0 +1,10 @@
+#############################################
+# Server configuration
+#############################################
+
+[server]
+hostname = "%{HOST}%"
+
+[server.run-as]
+group = "stalwart-mail"
+user = "stalwart-mail"

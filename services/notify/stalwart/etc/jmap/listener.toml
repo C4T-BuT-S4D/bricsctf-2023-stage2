@@ -1,0 +1,8 @@
+#############################################
+# JMAP server listener configuration
+#############################################
+
+[server.listener.jmap]
+bind = "[::]:8080"
+protocol = "jmap"
+url = "stalwart:8080"

@@ -1,0 +1,47 @@
+#############################################
+# SMTP inbound session configuration
+#############################################
+
+[session]
+duration = "30m"
+timeout = "10m"
+transfer-limit = 67108864 # 64 MB
+
+[session.extensions]
+chunking = false
+expn = false
+requiretls = false
+vrfy = false
+
+[session.auth]
+allow-plain-text = true
+directory = "postgres"
+mechanisms = ["plain"]
+require = true
+
+[session.auth.errors]
+total = 2
+wait = "1ms"
+
+[session.mail]
+script = "mail_from_notifier"
+
+[session.rcpt]
+directory = "postgres"
+relay = false
+script = "rcpt_to_notify"
+
+[session.rcpt.errors]
+total = 5
+wait = "1ms"
+
+[session.data.limits]
+messages = 1000
+size = 8192
+
+[session.data.add-headers]
+auth-results = false
+message-id = false
+received = false
+received-spf = false
+return-path = false

@@ -1,0 +1,7 @@
+#############################################
+# Tracing & logging configuration
+#############################################
+
+[global.tracing]
+level = "trace"
+method = "stdout"

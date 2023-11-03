@@ -1,0 +1,27 @@
+#############################################
+# JMAP server store configuration
+#############################################
+
+[store.db]
+path = "%{BASE_PATH}%/data/index.sqlite3"
+
+[store.db.pool]
+max-connections = 10
+
+[store.db.cache]
+size = 500
+
+[store.blob]
+type = "local"
+
+[store.blob.local]
+path = "%{BASE_PATH}%/data/blobs"
+
+[jmap.encryption]
+append = false
+enable = false
+
+[jmap.purge.schedule]
+blobs = "0 * *"
+db = "0 * *"
+sessions = "0 * *"

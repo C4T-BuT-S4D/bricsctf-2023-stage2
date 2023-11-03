@@ -1,4 +1,4 @@
-FROM stalwartlabs/mail-server:v0.3.9
+FROM stalwartlabs/mail-server:v0.4.2
 
 RUN mkdir \
   /opt/stalwart-mail/data \

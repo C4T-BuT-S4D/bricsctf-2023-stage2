@@ -1,0 +1,26 @@
+#############################################
+# IMAP server settings
+#############################################
+
+[imap.request]
+max-size = 131072
+
+[imap.auth]
+allow-plain-text = true
+max-failures = 2
+
+[imap.folders]
+all-messages = true
+
+[imap.folders.name]
+all = "All Mail"
+shared = "Shared Folders"
+
+[imap.timeout]
+anonymous = "1m"
+authenticated = "1m"
+idle = "1m"
+
+[imap.rate-limit]
+concurrent = 2
+requests = "500/1m"

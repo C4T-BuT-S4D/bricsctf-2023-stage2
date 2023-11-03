@@ -1,0 +1,29 @@
+#############################################
+# Stalwart Mail Server Configuration File   
+#############################################
+
+[macros]
+base_path = "/opt/stalwart-mail"
+default_domain = "notify"
+host = "mail.notify"
+
+[include]
+files = [
+  "%{BASE_PATH}%/etc/common/server.toml",
+  "%{BASE_PATH}%/etc/common/sieve.toml",
+  "%{BASE_PATH}%/etc/common/tls.toml",
+  "%{BASE_PATH}%/etc/common/tracing.toml",
+  "%{BASE_PATH}%/etc/directory/sql.toml",
+  "%{BASE_PATH}%/etc/imap/listener.toml",
+  "%{BASE_PATH}%/etc/imap/settings.toml",
+  "%{BASE_PATH}%/etc/jmap/auth.toml",
+  "%{BASE_PATH}%/etc/jmap/listener.toml",
+  "%{BASE_PATH}%/etc/jmap/protocol.toml",
+  "%{BASE_PATH}%/etc/jmap/store.toml",
+  "%{BASE_PATH}%/etc/smtp/auth.toml",
+  "%{BASE_PATH}%/etc/smtp/listener.toml",
+  "%{BASE_PATH}%/etc/smtp/queue.toml",
+  "%{BASE_PATH}%/etc/smtp/report.toml",
+  "%{BASE_PATH}%/etc/smtp/resolver.toml",
+  "%{BASE_PATH}%/etc/smtp/session.toml",
+]

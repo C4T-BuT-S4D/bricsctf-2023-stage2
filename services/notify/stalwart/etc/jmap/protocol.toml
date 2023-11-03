@@ -1,0 +1,15 @@
+#############################################
+# JMAP protocol configuration
+#############################################
+
+[jmap.protocol.request]
+max-size = 131072
+
+[jmap.protocol.upload]
+max-size = 0
+quota.files = 0
+quota.size = 0
+ttl = "1ms"
+
+[jmap.principal]
+allow-lookups = false

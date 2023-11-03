@@ -1,0 +1,7 @@
+#############################################
+# TLS default configuration
+#############################################
+
+[server.tls]
+enable = false
+implicit = false

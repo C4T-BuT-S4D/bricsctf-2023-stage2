@@ -1,0 +1,7 @@
+#############################################
+# SMTP reporting configuration
+#############################################
+
+[report]
+hash = 64
+path = "%{BASE_PATH}%/reports"
