@@ -16,8 +16,9 @@ fun Routing.menu(menuService: MenuService) {
         get("/get/{menuId}") {
             val menuId = call.parameters["menuId"] ?: ""
             val userId = call.principal<UserSession>()?.id ?: ""
+            val shareToken = call.request.queryParameters["shareToken"]
 
-            menuService.getMenu(menuId, userId)?.let {
+            menuService.getMenu(menuId, userId, shareToken)?.let {
                 call.respond(it)
             } ?: run {
                 call.response.status(HttpStatusCode.NotFound)
@@ -28,8 +29,9 @@ fun Routing.menu(menuService: MenuService) {
         get("/render/{menuId}") {
             val menuId = call.parameters["menuId"] ?: ""
             val userId = call.principal<UserSession>()?.id ?: ""
+            val shareToken = call.request.queryParameters["shareToken"]
 
-            menuService.getMenu(menuId, userId)?.let {
+            menuService.getMenu(menuId, userId, shareToken)?.let {
                 call.respond(menuService.renderPDF(it))
             } ?: run {
                 call.response.status(HttpStatusCode.NotFound)
@@ -55,13 +57,14 @@ fun Routing.menu(menuService: MenuService) {
 
             val updatedMenuRequest = call.receive<UpdateMenuRequest>()
             val updatedMenu = updatedMenuRequest.menu
-            if (menuService.getMenu(updatedMenu.id, userSession.id) == null) {
+
+            val updated = menuService.updateMenu(updatedMenu, userSession.id) ?: run {
                 call.response.status(HttpStatusCode.NotFound)
                 call.respond(Error("Menu not found or you don't have access to it"))
                 return@post
             }
 
-            call.respond(menuService.updateMenu(updatedMenu))
+            call.respond(updated)
         }
 
         post("/delete/{menuId}") {
