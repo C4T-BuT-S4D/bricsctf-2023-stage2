@@ -1,11 +1,15 @@
 package org.cbsctf.service
 
 import com.mongodb.client.MongoDatabase
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.response.*
 import org.cbsctf.client.RendererClient
 import org.cbsctf.converter.toDto
 import org.cbsctf.converter.toModel
 import org.cbsctf.dto.MenuDto
 import org.cbsctf.models.Menu
+import org.cbsctf.routes.Error
 import org.litote.kmongo.*
 
 class MenuService(db: MongoDatabase, client: RendererClient) {
@@ -15,8 +19,10 @@ class MenuService(db: MongoDatabase, client: RendererClient) {
     fun getMenu(
         id: String,
         userId: String,
+        shareToken: String? = null,
     ): MenuDto? {
-        return menus.findOneById(id)?.takeIf { it.userId == userId || it.shared }?.toDto()
+        return menus.findOneById(id)
+            ?.takeIf { it.userId == userId || it.shared || it.shareToken == shareToken.orEmpty() }?.toDto()
     }
 
     fun createMenu(
@@ -28,8 +34,10 @@ class MenuService(db: MongoDatabase, client: RendererClient) {
         return menu.apply { menus.insertOne(menu) }.toDto()
     }
 
-    fun updateMenu(updatedMenu: MenuDto): MenuDto {
+    fun updateMenu(updatedMenu: MenuDto, uid: String): MenuDto? {
+        val existingMenu = this.getMenu(updatedMenu.id, uid) ?: return null
         val menu = updatedMenu.toModel()
+        menu.shareToken = existingMenu.shareToken
         menu.markdown = generateMarkdown(menu)
         return menu.apply { menu.id?.let { menus.updateOneById(it, menu) } }.toDto()
     }

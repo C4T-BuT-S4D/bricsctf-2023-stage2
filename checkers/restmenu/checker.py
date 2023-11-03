@@ -117,7 +117,7 @@ class Checker(BaseChecker):
         category = self.random_rest_category()
         item = self.random_item_name()
         description = self.random_description()
-        price = random.randint(0, 1000)
+        price = random.randint(1, 1000)
         menu['categories'] = [
 
             {'name': category, 'items': [
@@ -126,15 +126,8 @@ class Checker(BaseChecker):
                  },
             ]}
         ]
-        menu['shared'] = True
         updated_menu = self.cm.update_menu(sess, menu)
-
-        new_sess = get_initialized_session()
-        su = rnd_username(10)
-        sp = rnd_password(10)
-        self.cm.register(new_sess, su, sp)
-
-        fetched_menu = self.cm.get_menu(new_sess, updated_menu.get('id'))
+        fetched_menu = self.cm.get_menu(sess, updated_menu.get('id'))
         self.assert_eq(name, fetched_menu.get('name'), 'Failed to get the menu')
         cat = fetched_menu.get('categories')[0] if len(fetched_menu.get('categories')) > 0 else {}
         self.assert_eq(category, cat.get('name'), 'Failed to get the menu')
@@ -146,6 +139,21 @@ class Checker(BaseChecker):
 
         for to_check in [name, category, item, price, description, file_id]:
             self.assert_in(str(to_check), fetched_menu['markdown'], 'Failed to get the menu')
+
+        new_sess = get_initialized_session()
+        su = rnd_username(10)
+        sp = rnd_password(10)
+        self.cm.register(new_sess, su, sp)
+
+        menu_fetched_by_token = self.cm.get_menu(new_sess, fetched_menu.get('id'), token=fetched_menu.get('shareToken'))
+        self.assert_eq(fetched_menu, menu_fetched_by_token, 'Failed to get the menu by token')
+
+        # Share the menu and get the shared one.
+        fetched_menu['shared'] = True
+        shared_menu = self.cm.update_menu(sess, fetched_menu)
+
+        fetched_shared_menu = self.cm.get_menu(new_sess, shared_menu.get('id'))
+        self.assert_eq(fetched_shared_menu, shared_menu, 'Failed to get the shared menu')
 
         extracted_from_pdf = self.extract_text(self.cm.render_menu(new_sess, fetched_menu.get('id')))
         for to_check in [name, category, item, price, description]:
@@ -175,11 +183,16 @@ class Checker(BaseChecker):
         ]
         self.cm.update_menu(sess, menu)
 
-        self.cquit(Status.OK, menu_id, f"{u}:{p}:{menu_id}")
+        u1 = rnd_username(10)
+        p1 = rnd_username(10)
+        sess = get_initialized_session()
+        self.cm.register(sess, u1, p1)
+
+        self.cquit(Status.OK, menu_id, f"{u}:{p}:{menu_id}:{u1}:{p1}")
 
     def get(self, flag_id: str, flag: str, vuln: str):
         s = get_initialized_session()
-        username, password, menu_id = flag_id.split(':')
+        username, password, menu_id, username2, password2 = flag_id.split(':')
 
         self.cm.login(s, username, password, status=status.Status.CORRUPT)
 
@@ -192,6 +205,17 @@ class Checker(BaseChecker):
         extracted_from_pdf = self.extract_text(self.cm.render_menu(s, menu_id))
 
         self.assert_in(flag.encode(), extracted_from_pdf, 'Failed to render the user menu',
+                       status=status.Status.CORRUPT)
+
+        second_sess = checklib.get_initialized_session()
+        self.cm.login(second_sess, username2, password2, status=status.Status.CORRUPT)
+
+        menu_by_token = self.cm.get_menu(second_sess, menu_id, token=menu.get('shareToken'))
+        self.assert_eq(menu_by_token, menu, 'Failed to get the user menu by token', status=status.Status.CORRUPT)
+
+        extracted_from_pdf_by_token = self.extract_text(
+            self.cm.render_menu(second_sess, menu_id, token=menu.get('shareToken')))
+        self.assert_in(flag.encode(), extracted_from_pdf_by_token, 'Failed to render the user menu by token',
                        status=status.Status.CORRUPT)
 
         self.cquit(Status.OK)

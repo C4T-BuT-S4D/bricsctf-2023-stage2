@@ -14,6 +14,7 @@ fun Menu.toDto() =
         author = userId,
         shared = shared,
         markdown = markdown,
+        shareToken = shareToken,
         categories =
             categories.map { category ->
                 MenuCategoryDto(
@@ -38,6 +39,7 @@ fun MenuDto.toModel() =
         userId = author,
         shared = shared,
         markdown = markdown,
+        shareToken = shareToken,
         categories =
             categories.map { category ->
                 MenuCategory(

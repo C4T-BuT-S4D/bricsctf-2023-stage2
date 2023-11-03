@@ -23,5 +23,6 @@ data class MenuDto(
     val categories: List<MenuCategoryDto> = emptyList(),
     val author: String,
     val shared: Boolean = false,
+    val shareToken: String,
     val markdown: String? = null,
 )
