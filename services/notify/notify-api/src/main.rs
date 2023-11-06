@@ -1,3 +1,8 @@
+use std::alloc::System;
+
+#[global_allocator]
+static GLOBAL: System = System;
+
 mod app;
 mod config;
 mod repository;

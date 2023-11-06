@@ -239,7 +239,7 @@ impl Repository {
         let q = query_as!(
             NotificationQueueElement,
             r#"WITH batch_elements AS (
-              SELECT notification_id
+              SELECT notification_id, planned_at
               FROM notification_queue
               WHERE planned_at < NOW()
                 AND state = 'planned'
@@ -249,7 +249,12 @@ impl Repository {
             SET state = 'inprogress'
             FROM notification n
             WHERE nq.notification_id = n.id
-              AND nq.notification_id IN (SELECT notification_id FROM batch_elements)
+              AND EXISTS (
+                SELECT 1
+                FROM batch_elements be
+                WHERE be.notification_id = nq.notification_id
+                  AND be.planned_at = nq.planned_at
+              )
             RETURNING n.id, n.username, n.title, n.content, nq.planned_at"#
         );
 

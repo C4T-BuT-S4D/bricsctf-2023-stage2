@@ -3,10 +3,9 @@ use crate::rng::APP_RNG;
 use crate::session::Session;
 
 use anyhow::{Context, Result};
-use argon2::password_hash::{PasswordHasher, SaltString};
-use argon2::Argon2;
 use axum::{extract::State, http::StatusCode, Extension};
 use once_cell::sync::Lazy;
+use rand::RngCore;
 use regex::Regex;
 use serde::Deserialize;
 
@@ -51,11 +50,16 @@ pub(super) async fn handler(
     State(state): State<app::State>,
     ValidatedJson(request): ValidatedJson<RegistrationRequest>,
 ) -> Result<(StatusCode, Result<Extension<Session>, JsonError>), LoggedError> {
-    let salt = APP_RNG.with_borrow_mut(|rng| SaltString::generate(rng));
-    let password_hash = Argon2::default()
-        .hash_password(request.password.as_bytes(), &salt)
-        .map_err(anyhow::Error::msg)
-        .context("hashing password")?;
+    let salt = {
+        let mut s = [0u8; 16];
+        APP_RNG.with_borrow_mut(|rng| rng.fill_bytes(&mut s));
+        s
+    };
+
+    let password_hash =
+        bcrypt::hash_with_salt(request.password.as_bytes(), bcrypt::DEFAULT_COST, salt)
+            .map_err(anyhow::Error::new)
+            .context("hashing password")?;
 
     let created = state
         .repository
