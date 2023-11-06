@@ -1,10 +1,12 @@
 use crate::repository;
+use crate::rng::APP_RNG;
 
 use std::future::Future;
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
 use base64::Engine;
+use rand::seq::SliceRandom;
 use time::OffsetDateTime;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{tcp, TcpStream};
@@ -100,6 +102,21 @@ impl Notifier {
             self.notifier_credentials.clone(),
         )
         .await?;
+
+        // Fairly sort batch so that all elements get sent in the order they are planned
+        let mut batch = batch.clone();
+        batch.sort_unstable_by_key(|el| (el.planned_at, el.id));
+
+        // Shuffle to avoid any possible skew in selecting the order when multiple elements should be sent at once
+        let mut block_start: usize = 0;
+        let mut block_end: usize = 0;
+        for i in 0..=batch.len() {
+            if i == batch.len() || batch[i].planned_at != batch[block_start].planned_at {
+                APP_RNG.with_borrow_mut(|rng| batch[block_start..block_end].shuffle(rng));
+                block_start = i;
+            }
+            block_end = i + 1;
+        }
 
         for notification in batch {
             let send_result = match connection
@@ -261,7 +278,7 @@ impl Connection {
     }
 
     async fn send_message(&mut self, msg: String, expected_lines: u32) -> Result<()> {
-        Connection::timeout(
+        Self::timeout(
             self.request_timeout,
             self.tcp_write
                 .write_all((msg + Self::LINE_ENDING).as_bytes()),
@@ -271,7 +288,7 @@ impl Connection {
 
         for i in 0..expected_lines {
             let mut buf = String::new();
-            Connection::timeout(
+            Self::timeout(
                 self.request_timeout,
                 self.tcp_read.read_line(&mut buf),
                 format!("reading response line {i}"),
@@ -298,7 +315,7 @@ impl Connection {
 
     async fn timeout<F, T, E>(request_timeout: Duration, f: F, context: String) -> Result<T>
     where
-        F: Future<Output = Result<T, E>>,
+        F: Future<Output = Result<T, E>> + Send,
         E: 'static + std::error::Error + Send + Sync,
     {
         timeout(request_timeout, f)

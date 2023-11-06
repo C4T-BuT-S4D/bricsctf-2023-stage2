@@ -37,6 +37,7 @@ pub struct Notification {
     pub plan: Vec<NotificationPlan>,
 }
 
+#[derive(Clone)]
 pub struct NotificationQueueElement {
     pub id: Uuid,
     pub username: String,
