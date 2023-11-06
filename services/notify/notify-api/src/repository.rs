@@ -1,6 +1,7 @@
+use std::future::Future;
+
 use anyhow::Result;
 use sqlx::{postgres::PgPoolOptions, query, query_as, PgPool};
-use std::future::Future;
 use time::{Duration, OffsetDateTime};
 use tokio::time::{timeout, Timeout};
 use uuid::Uuid;
@@ -236,12 +237,18 @@ impl Repository {
     pub async fn reserve_notification_queue_batch(&self) -> Result<Vec<NotificationQueueElement>> {
         let q = query_as!(
             NotificationQueueElement,
-            r#"UPDATE notification_queue nq
+            r#"WITH batch_elements AS (
+              SELECT notification_id
+              FROM notification_queue
+              WHERE planned_at < NOW()
+                AND state = 'planned'
+              LIMIT 100
+            )
+            UPDATE notification_queue nq
             SET state = 'inprogress'
             FROM notification n
             WHERE nq.notification_id = n.id
-              AND nq.planned_at < NOW()
-              AND nq.state = 'planned'
+              AND nq.notification_id IN (SELECT notification_id FROM batch_elements)
             RETURNING n.id, n.username, n.title, n.content, nq.planned_at"#
         );
 

@@ -105,11 +105,11 @@ async fn setup_notifier(
         repository.clone(),
         smtp::NotifierOpts {
             interval: NOTIFIER_INTERVAL,
-            server_addr: cfg.notifier_server_addr.clone(),
-            server_name: NOTIFIER_SERVER_NAME.into(),
-            email_domain: NOTIFIER_DOMAIN.into(),
-            notifier_username: NOTIFIER_USERNAME.into(),
-            notifier_password: String::from_utf8(notifier_password).context(format!(
+            server_addr: &cfg.notifier_server_addr,
+            server_name: NOTIFIER_SERVER_NAME,
+            email_domain: NOTIFIER_DOMAIN,
+            notifier_username: NOTIFIER_USERNAME,
+            notifier_password: std::str::from_utf8(&notifier_password).context(format!(
                 "invalid notifier secret stored in {}",
                 &cfg.notifier_secret_path
             ))?,

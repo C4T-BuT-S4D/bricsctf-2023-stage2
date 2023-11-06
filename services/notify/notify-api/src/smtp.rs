@@ -1,50 +1,56 @@
 use crate::repository;
 
+use std::{sync::Arc, time::Duration};
+
 use anyhow::{Context, Result};
-use std::time::Duration;
+use base64::Engine;
 use time::OffsetDateTime;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{tcp, TcpStream};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-pub struct NotifierOpts {
+pub struct NotifierOpts<'a> {
     pub interval: Duration,
-    pub server_addr: String,
-    pub server_name: String,
-    pub email_domain: String,
-    pub notifier_username: String,
-    pub notifier_password: String,
+    pub server_addr: &'a str,
+    pub server_name: &'a str,
+    pub email_domain: &'a str,
+    pub notifier_username: &'a str,
+    pub notifier_password: &'a str,
 }
 
 #[derive(Clone)]
 pub struct Notifier {
     repository: repository::Repository,
     interval: Duration,
-    server_name: String,
-    server_addr: String,
-    email_domain: String,
-    notifier_email: String,
-    notifier_password: String,
+    server_name: Arc<str>,
+    server_addr: Arc<str>,
+    email_domain: Arc<str>,
+    notifier_email: Arc<str>,
+    notifier_credentials: Arc<str>,
 }
 
 impl Notifier {
-    pub async fn new(repository: repository::Repository, opts: NotifierOpts) -> Result<Self> {
+    pub async fn new(repository: repository::Repository, opts: NotifierOpts<'_>) -> Result<Self> {
         repository
             .reset_notification_queue()
             .await
             .context("resetting current notification queue")?;
 
-        let notifier_email = format_email(&opts.notifier_username, &opts.email_domain);
+        let notifier_email = format_email(opts.notifier_username, opts.email_domain);
+        let notifier_credentials = base64::engine::general_purpose::STANDARD.encode(format!(
+            "\x00{}\x00{}",
+            opts.notifier_username, opts.notifier_password
+        ));
 
         Ok(Self {
             repository,
             interval: opts.interval,
-            server_name: opts.server_name,
-            server_addr: opts.server_addr,
-            email_domain: opts.email_domain,
-            notifier_email,
-            notifier_password: opts.notifier_password,
+            server_name: opts.server_name.into(),
+            server_addr: opts.server_addr.into(),
+            email_domain: opts.email_domain.into(),
+            notifier_email: notifier_email.into(),
+            notifier_credentials: notifier_credentials.into(),
         })
     }
 
@@ -79,12 +85,15 @@ impl Notifier {
         Ok(())
     }
 
-    // :TODO: limit batch size to avoid SMTP server's mails per connection
     async fn iteration(self, batch: Vec<repository::NotificationQueueElement>) -> Result<()> {
         info!("notifier processing batch of {} elements", batch.len());
 
-        let mut connection =
-            Connection::connect(self.server_addr.clone(), self.server_name.clone()).await?;
+        let mut connection = Connection::connect(
+            self.server_addr.clone(),
+            self.server_name.clone(),
+            self.notifier_credentials.clone(),
+        )
+        .await?;
 
         for notification in batch {
             let send_result = match connection
@@ -133,19 +142,23 @@ impl Notifier {
 struct Connection {
     tcp_write: tcp::OwnedWriteHalf,
     tcp_read: BufReader<tcp::OwnedReadHalf>,
-    server_addr: String,
-    server_name: String,
+    server_addr: Arc<str>,
+    server_name: Arc<str>,
+    credentials: Arc<str>,
 }
 
 // :TODO: add timeouts
 // :TODO: use NOOP pings + concurrent reading future instead of the current
 //        "await response for each message" mechanism, since it can be bypassed
-// :TODO: prematurely reconnect when connection has lived for too long
 impl Connection {
     const LINE_ENDING: &'static str = "\r\n";
 
-    async fn connect(server_addr: String, server_name: String) -> Result<Self> {
-        let tcp_stream = TcpStream::connect(&server_addr)
+    async fn connect(
+        server_addr: Arc<str>,
+        server_name: Arc<str>,
+        credentials: Arc<str>,
+    ) -> Result<Self> {
+        let tcp_stream = TcpStream::connect(&*server_addr)
             .await
             .context(format!("connecting to SMTP server {}", &server_addr))?;
 
@@ -156,6 +169,7 @@ impl Connection {
             tcp_read: BufReader::new(tcp_read),
             server_addr,
             server_name,
+            credentials: credentials.clone(),
         };
 
         connection
@@ -163,7 +177,10 @@ impl Connection {
             .await
             .context("sending HELO")?;
 
-        // connection.send_message(format!(), expected_lines)
+        connection
+            .send_message(format!("AUTH PLAIN {credentials}",), 1)
+            .await
+            .context("authenticating in mail server")?;
 
         Ok(connection)
     }
@@ -255,8 +272,12 @@ impl Connection {
     }
 
     async fn reconnect(&mut self) -> Result<()> {
-        let new_connection =
-            Self::connect(self.server_addr.clone(), self.server_name.clone()).await?;
+        let new_connection = Self::connect(
+            self.server_addr.clone(),
+            self.server_name.clone(),
+            self.credentials.clone(),
+        )
+        .await?;
 
         *self = new_connection;
 

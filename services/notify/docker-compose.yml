@@ -31,6 +31,7 @@ services:
       DATABASE_URL: postgresql://stalwart:stalwart-password@postgres:5432/notify?sslmode=disable
     ports:
       - 143:143
+      - 587:587
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,6 +49,8 @@ services:
       POSTGRES_DB: notify
       POSTGRES_USER: superuser
       POSTGRES_PASSWORD: superuser-password
+    ports:
+      - 5432:5432
     healthcheck:
       test: pg_isready -d notify -U superuser
       interval: 5s
