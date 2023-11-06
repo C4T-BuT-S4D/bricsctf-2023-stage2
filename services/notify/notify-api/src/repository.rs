@@ -82,12 +82,12 @@ pub struct Repository {
 impl Repository {
     pub async fn connect(
         url: &str,
-        connection_timeout: std::time::Duration,
+        connect_timeout: std::time::Duration,
         request_timeout: std::time::Duration,
         max_connections: u32,
     ) -> Result<Self> {
         let pool = timeout(
-            connection_timeout,
+            connect_timeout,
             PgPoolOptions::new()
                 .max_connections(max_connections)
                 .connect(url),

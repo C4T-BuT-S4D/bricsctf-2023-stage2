@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE notification_queue nq\n            SET state = 'inprogress'\n            FROM notification n\n            WHERE nq.notification_id = n.id\n              AND nq.planned_at < NOW()\n              AND nq.state = 'planned'\n            RETURNING n.id, n.username, n.title, n.content, nq.planned_at",
+  "query": "WITH batch_elements AS (\n              SELECT notification_id\n              FROM notification_queue\n              WHERE planned_at < NOW()\n                AND state = 'planned'\n              LIMIT 100\n            )\n            UPDATE notification_queue nq\n            SET state = 'inprogress'\n            FROM notification n\n            WHERE nq.notification_id = n.id\n              AND nq.notification_id IN (SELECT notification_id FROM batch_elements)\n            RETURNING n.id, n.username, n.title, n.content, nq.planned_at",
   "describe": {
     "columns": [
       {
@@ -40,5 +40,5 @@
       false
     ]
   },
-  "hash": "7e45c583fa409da81bd5dcce9ad69737d06e295aaecc2c0c577b4ffea4ac3b1b"
+  "hash": "de8d0314aae5b961133b3d65de12d8b5178d2540b63effd2b8100c645dc825cf"
 }

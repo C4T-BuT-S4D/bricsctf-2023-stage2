@@ -1,5 +1,6 @@
 use crate::repository;
 
+use std::future::Future;
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
@@ -7,10 +8,12 @@ use base64::Engine;
 use time::OffsetDateTime;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{tcp, TcpStream};
+use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
 pub struct NotifierOpts<'a> {
+    pub request_timeout: Duration,
     pub interval: Duration,
     pub server_addr: &'a str,
     pub server_name: &'a str,
@@ -22,6 +25,7 @@ pub struct NotifierOpts<'a> {
 #[derive(Clone)]
 pub struct Notifier {
     repository: repository::Repository,
+    request_timeout: Duration,
     interval: Duration,
     server_name: Arc<str>,
     server_addr: Arc<str>,
@@ -45,6 +49,7 @@ impl Notifier {
 
         Ok(Self {
             repository,
+            request_timeout: opts.request_timeout,
             interval: opts.interval,
             server_name: opts.server_name.into(),
             server_addr: opts.server_addr.into(),
@@ -89,6 +94,7 @@ impl Notifier {
         info!("notifier processing batch of {} elements", batch.len());
 
         let mut connection = Connection::connect(
+            self.request_timeout,
             self.server_addr.clone(),
             self.server_name.clone(),
             self.notifier_credentials.clone(),
@@ -140,20 +146,19 @@ impl Notifier {
 }
 
 struct Connection {
-    tcp_write: tcp::OwnedWriteHalf,
-    tcp_read: BufReader<tcp::OwnedReadHalf>,
+    request_timeout: Duration,
     server_addr: Arc<str>,
     server_name: Arc<str>,
     credentials: Arc<str>,
+    tcp_write: tcp::OwnedWriteHalf,
+    tcp_read: BufReader<tcp::OwnedReadHalf>,
 }
 
-// :TODO: add timeouts
-// :TODO: use NOOP pings + concurrent reading future instead of the current
-//        "await response for each message" mechanism, since it can be bypassed
 impl Connection {
     const LINE_ENDING: &'static str = "\r\n";
 
     async fn connect(
+        request_timeout: Duration,
         server_addr: Arc<str>,
         server_name: Arc<str>,
         credentials: Arc<str>,
@@ -165,11 +170,12 @@ impl Connection {
         let (tcp_read, tcp_write) = tcp_stream.into_split();
 
         let mut connection = Self {
-            tcp_write,
-            tcp_read: BufReader::new(tcp_read),
+            request_timeout,
             server_addr,
             server_name,
             credentials: credentials.clone(),
+            tcp_write,
+            tcp_read: BufReader::new(tcp_read),
         };
 
         connection
@@ -255,17 +261,22 @@ impl Connection {
     }
 
     async fn send_message(&mut self, msg: String, expected_lines: u32) -> Result<()> {
-        self.tcp_write
-            .write_all((msg + Self::LINE_ENDING).as_bytes())
-            .await
-            .context("writing request message")?;
+        Connection::timeout(
+            self.request_timeout,
+            self.tcp_write
+                .write_all((msg + Self::LINE_ENDING).as_bytes()),
+            "writing request message".into(),
+        )
+        .await?;
 
         for i in 0..expected_lines {
             let mut buf = String::new();
-            self.tcp_read
-                .read_line(&mut buf)
-                .await
-                .context(format!("reading response line {i}"))?;
+            Connection::timeout(
+                self.request_timeout,
+                self.tcp_read.read_line(&mut buf),
+                format!("reading response line {i}"),
+            )
+            .await?;
         }
 
         Ok(())
@@ -273,6 +284,7 @@ impl Connection {
 
     async fn reconnect(&mut self) -> Result<()> {
         let new_connection = Self::connect(
+            self.request_timeout,
             self.server_addr.clone(),
             self.server_name.clone(),
             self.credentials.clone(),
@@ -282,6 +294,18 @@ impl Connection {
         *self = new_connection;
 
         Ok(())
+    }
+
+    async fn timeout<F, T, E>(request_timeout: Duration, f: F, context: String) -> Result<T>
+    where
+        F: Future<Output = Result<T, E>>,
+        E: 'static + std::error::Error + Send + Sync,
+    {
+        timeout(request_timeout, f)
+            .await
+            .map_err(anyhow::Error::new)
+            .and_then(|r| r.map_err(anyhow::Error::new))
+            .context(context)
     }
 }
 

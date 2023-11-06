@@ -1,4 +1,2 @@
-- smtp.rs: add timeouts
-- smtp.rs: prematurely reconnect when connection has lived for too long
 - Write cleaner to remove users/mail from postgres and stalwart
 - Prettier content (proper text) generation in notification content

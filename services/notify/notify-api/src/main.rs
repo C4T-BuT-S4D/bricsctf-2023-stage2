@@ -16,7 +16,11 @@ use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::{error, info, warn, Level};
 
-const MAX_USER_AGE: Duration = Duration::from_secs(30 * 60);
+const REPOSITORY_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+const REPOSITORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const REPOSITORY_MAX_CONNECTIONS: u32 = 64;
+const SESSION_MAX_AGE: Duration = Duration::from_secs(30 * 60);
+const NOTIFIER_REQUEST_TIMEOUT: Duration = Duration::from_millis(300);
 const NOTIFIER_INTERVAL: Duration = Duration::from_secs(1);
 const NOTIFIER_USERNAME: &str = "notifier";
 const NOTIFIER_DOMAIN: &str = "notify";
@@ -82,9 +86,9 @@ async fn run() -> Result<()> {
 async fn setup_repository(cfg: &config::Config) -> Result<repository::Repository> {
     repository::Repository::connect(
         &cfg.database_url,
-        Duration::from_secs(30),
-        Duration::from_secs(10),
-        64,
+        REPOSITORY_CONNECT_TIMEOUT,
+        REPOSITORY_REQUEST_TIMEOUT,
+        REPOSITORY_MAX_CONNECTIONS,
     )
     .await
 }
@@ -104,6 +108,7 @@ async fn setup_notifier(
     let notifier = smtp::Notifier::new(
         repository.clone(),
         smtp::NotifierOpts {
+            request_timeout: NOTIFIER_REQUEST_TIMEOUT,
             interval: NOTIFIER_INTERVAL,
             server_addr: &cfg.notifier_server_addr,
             server_name: NOTIFIER_SERVER_NAME,
@@ -145,7 +150,7 @@ fn setup_api_server(
                 )
                 .layer(session::layer(
                     &cfg.cookie_key_path,
-                    MAX_USER_AGE.try_into().unwrap(),
+                    SESSION_MAX_AGE.try_into().unwrap(),
                 )?),
         )
         .with_state(state);
