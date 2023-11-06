@@ -8,45 +8,43 @@ use tokio::net::{tcp, TcpStream};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
+pub struct NotifierOpts {
+    pub interval: Duration,
+    pub server_addr: String,
+    pub server_name: String,
+    pub email_domain: String,
+    pub notifier_username: String,
+    pub notifier_password: String,
+}
+
+#[derive(Clone)]
 pub struct Notifier {
     repository: repository::Repository,
     interval: Duration,
-    email: String,
-    domain: String,
     server_name: String,
     server_addr: String,
-}
-
-pub struct NotifierOpts<'a> {
-    interval: Duration,
-    server_addr: &'a str,
-    server_name: &'a str,
-    email_domain: &'a str,
-    notifier_username: &'a str,
-    notifier_password: &'a str,
+    email_domain: String,
+    notifier_email: String,
+    notifier_password: String,
 }
 
 impl Notifier {
-    pub async fn new(
-        repository: repository::Repository,
-        interval: Duration,
-        username: String,
-        domain: String,
-        server_name: String,
-        server_addr: String,
-    ) -> Result<Self> {
+    pub async fn new(repository: repository::Repository, opts: NotifierOpts) -> Result<Self> {
         repository
             .reset_notification_queue()
             .await
             .context("resetting current notification queue")?;
 
+        let notifier_email = format_email(&opts.notifier_username, &opts.email_domain);
+
         Ok(Self {
             repository,
-            interval,
-            email: format_email(&username, &domain),
-            domain,
-            server_name,
-            server_addr,
+            interval: opts.interval,
+            server_name: opts.server_name,
+            server_addr: opts.server_addr,
+            email_domain: opts.email_domain,
+            notifier_email,
+            notifier_password: opts.notifier_password,
         })
     }
 
@@ -54,12 +52,12 @@ impl Notifier {
         loop {
             tokio::select! {
               () = cancel_token.cancelled() => {
-                info!("notifier shutting down due to cancellation");
+                info!("notifier shutting down due to cancelation");
                 break;
               }
 
               () = tokio::time::sleep(self.interval) => {
-                if let Err(e) = self.iteration().await {
+                if let Err(e) = self.launch_iteration().await {
                   error!(error=format!("{:#}", e), "unexpected error occurred during notifier iteration");
                 }
               }
@@ -67,19 +65,22 @@ impl Notifier {
         }
     }
 
-    // :TODO: limit batch size to avoid SMTP server's mails per connection
-    // :TODO: launch concurrent futures for each iteration
-    async fn iteration(&self) -> Result<()> {
+    async fn launch_iteration(&self) -> Result<()> {
         let batch = self
             .repository
             .reserve_notification_queue_batch()
             .await
             .context("reserving batch in notification queue")?;
 
-        if batch.is_empty() {
-            return Ok(());
+        if !batch.is_empty() {
+            tokio::spawn(self.clone().iteration(batch));
         }
 
+        Ok(())
+    }
+
+    // :TODO: limit batch size to avoid SMTP server's mails per connection
+    async fn iteration(self, batch: Vec<repository::NotificationQueueElement>) -> Result<()> {
         info!("notifier processing batch of {} elements", batch.len());
 
         let mut connection =
@@ -88,10 +89,10 @@ impl Notifier {
         for notification in batch {
             let send_result = match connection
                 .send_mail(
-                    self.email.clone(),
-                    format_email(&notification.username, &self.domain),
-                    notification.title,
-                    notification.content,
+                    &self.notifier_email,
+                    &format_email(&notification.username, &self.email_domain),
+                    &notification.title,
+                    &notification.content,
                     5,
                 )
                 .await
@@ -162,22 +163,21 @@ impl Connection {
             .await
             .context("sending HELO")?;
 
+        // connection.send_message(format!(), expected_lines)
+
         Ok(connection)
     }
 
     async fn send_mail(
         &mut self,
-        from: String,
-        to: String,
-        subject: String,
-        content: String,
+        from: &str,
+        to: &str,
+        subject: &str,
+        content: &str,
         retries: i32,
     ) -> Result<Option<OffsetDateTime>> {
         for _ in 0..retries {
-            if let Err(e) = self
-                .try_send_mail_once(&from, &to, &subject, &content)
-                .await
-            {
+            if let Err(e) = self.try_send_mail_once(from, to, subject, content).await {
                 error!(
                     error = format!("{e:#}"),
                     from = from,

@@ -1,13 +1,13 @@
 use anyhow::Result;
 use sqlx::{postgres::PgPoolOptions, query, query_as, PgPool};
-use std::{future::Future, time::Duration};
-use time::OffsetDateTime;
+use std::future::Future;
+use time::{Duration, OffsetDateTime};
 use tokio::time::{timeout, Timeout};
 use uuid::Uuid;
 
 pub struct NotificationCreationRepetitions {
     pub count: u32,
-    pub interval: time::Duration,
+    pub interval: Duration,
 }
 
 pub struct NotificationCreationOpts<'a> {
@@ -75,14 +75,14 @@ impl From<RepoNotification> for Notification {
 #[derive(Clone)]
 pub struct Repository {
     pool: PgPool,
-    request_timeout: Duration,
+    request_timeout: std::time::Duration,
 }
 
 impl Repository {
     pub async fn connect(
         url: &str,
-        connection_timeout: Duration,
-        request_timeout: Duration,
+        connection_timeout: std::time::Duration,
+        request_timeout: std::time::Duration,
         max_connections: u32,
     ) -> Result<Self> {
         let pool = timeout(
@@ -97,6 +97,10 @@ impl Repository {
             pool,
             request_timeout,
         })
+    }
+
+    pub async fn close(&self) {
+        self.pool.close().await;
     }
 
     /// Create a new account, returning true if an account with such username already exists.

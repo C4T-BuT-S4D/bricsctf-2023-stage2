@@ -74,6 +74,8 @@ async fn run() -> Result<()> {
         Err(e) => error!(error = format!("{:#}", e), "failed to join server future"),
     };
 
+    repository.close().await;
+
     Ok(())
 }
 
@@ -92,13 +94,26 @@ async fn setup_notifier(
     cfg: &config::Config,
     repository: &repository::Repository,
 ) -> Result<impl Future<Output = ()>> {
+    let notifier_password = tokio::fs::read(&cfg.notifier_secret_path)
+        .await
+        .context(format!(
+            "unable to read notifier secret {}",
+            &cfg.notifier_secret_path
+        ))?;
+
     let notifier = smtp::Notifier::new(
         repository.clone(),
-        NOTIFIER_INTERVAL,
-        NOTIFIER_USERNAME.into(),
-        NOTIFIER_DOMAIN.into(),
-        NOTIFIER_SERVER_NAME.into(),
-        cfg.notifier_server_addr.clone(),
+        smtp::NotifierOpts {
+            interval: NOTIFIER_INTERVAL,
+            server_addr: cfg.notifier_server_addr.clone(),
+            server_name: NOTIFIER_SERVER_NAME.into(),
+            email_domain: NOTIFIER_DOMAIN.into(),
+            notifier_username: NOTIFIER_USERNAME.into(),
+            notifier_password: String::from_utf8(notifier_password).context(format!(
+                "invalid notifier secret stored in {}",
+                &cfg.notifier_secret_path
+            ))?,
+        },
     )
     .await?;
 
@@ -147,10 +162,23 @@ fn setup_api_server(
     })
 }
 
+#[allow(clippy::redundant_pub_crate)]
+#[cfg(target_family = "unix")]
 async fn shutdown_signal(cancel_token: CancellationToken) {
-    tokio::signal::ctrl_c()
-        .await
-        .expect("failed to install graceful shutdown signal handler");
+    let mut sigterm =
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).unwrap();
+    let sigint = tokio::signal::ctrl_c();
 
+    tokio::select! {
+        _ = sigterm.recv() => {}
+        _ = sigint => {}
+    }
+
+    cancel_token.cancel();
+}
+
+#[cfg(target_family = "windows")]
+async fn shutdown_signal(cancel_token: CancellationToken) {
+    let _ = tokio::signal::ctrl_c().await;
     cancel_token.cancel();
 }
