@@ -134,7 +134,7 @@ pub(super) async fn create_handler(
             },
         )
         .await
-        .with_context(|| "creating notification")?;
+        .context("creating notification")?;
 
     Ok((
         StatusCode::CREATED,
@@ -168,7 +168,7 @@ pub(super) async fn get_handler(
         .repository
         .get_notification(&notification_id)
         .await
-        .with_context(|| format!("getting notification {}", &notification_id))?;
+        .context(format!("getting notification {}", &notification_id))?;
 
     let Some(notification_info) = notification_info else {
         return Ok((

@@ -28,13 +28,16 @@ pub(super) async fn handler(
         .repository
         .get_account_password_hash(&request.username)
         .await
-        .with_context(|| format!("getting account {}", &request.username))?;
+        .context(format!("getting account {}", &request.username))?;
 
     // Use dummy hash if user wasn't found to avoid user enumeration by response timing.
     let password_hash = match repo_pwd_hash {
         Some(ref password_hash) => PasswordHash::new(password_hash)
             .map_err(anyhow::Error::msg)
-            .with_context(|| format!("parsing account {} password hash", &request.username))?,
+            .context(format!(
+                "parsing account {} password hash",
+                &request.username
+            ))?,
         None => (*DUMMY_PASSWORD_HASH).clone(),
     };
 

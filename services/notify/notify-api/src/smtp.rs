@@ -38,7 +38,7 @@ impl Notifier {
         repository
             .reset_notification_queue()
             .await
-            .with_context(|| "resetting current notification queue")?;
+            .context("resetting current notification queue")?;
 
         Ok(Self {
             repository,
@@ -74,7 +74,7 @@ impl Notifier {
             .repository
             .reserve_notification_queue_batch()
             .await
-            .with_context(|| "reserving batch in notification queue")?;
+            .context("reserving batch in notification queue")?;
 
         if batch.is_empty() {
             return Ok(());
@@ -146,7 +146,7 @@ impl Connection {
     async fn connect(server_addr: String, server_name: String) -> Result<Self> {
         let tcp_stream = TcpStream::connect(&server_addr)
             .await
-            .with_context(|| format!("connecting to SMTP server {}", &server_addr))?;
+            .context(format!("connecting to SMTP server {}", &server_addr))?;
 
         let (tcp_read, tcp_write) = tcp_stream.into_split();
 
@@ -160,7 +160,7 @@ impl Connection {
         connection
             .send_message(format!("HELO {}", &connection.server_name), 2)
             .await
-            .with_context(|| "sending HELO")?;
+            .context("sending HELO")?;
 
         Ok(connection)
     }
@@ -188,7 +188,7 @@ impl Connection {
 
                 self.reconnect()
                     .await
-                    .with_context(|| "failed to reconnect after botched mail send attempt")?;
+                    .context("failed to reconnect after botched mail send attempt")?;
             } else {
                 return Ok(Some(OffsetDateTime::now_utc()));
             }
@@ -214,15 +214,15 @@ impl Connection {
     ) -> Result<()> {
         self.send_message(format!("MAIL FROM:<{from}>"), 1)
             .await
-            .with_context(|| "sending MAIL FROM")?;
+            .context("sending MAIL FROM")?;
 
         self.send_message(format!("RCPT TO:<{to}>"), 1)
             .await
-            .with_context(|| "sending RCPT TO")?;
+            .context("sending RCPT TO")?;
 
         self.send_message("DATA".into(), 1)
             .await
-            .with_context(|| "sending DATA")?;
+            .context("sending DATA")?;
 
         self.send_message(
             format!(
@@ -232,7 +232,7 @@ impl Connection {
             1,
         )
         .await
-        .with_context(|| "sending body")?;
+        .context("sending body")?;
 
         Ok(())
     }
@@ -241,14 +241,14 @@ impl Connection {
         self.tcp_write
             .write_all((msg + Self::LINE_ENDING).as_bytes())
             .await
-            .with_context(|| "writing request message")?;
+            .context("writing request message")?;
 
         for i in 0..expected_lines {
             let mut buf = String::new();
             self.tcp_read
                 .read_line(&mut buf)
                 .await
-                .with_context(|| format!("reading response line {i}"))?;
+                .context(format!("reading response line {i}"))?;
         }
 
         Ok(())

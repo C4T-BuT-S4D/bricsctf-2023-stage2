@@ -16,19 +16,19 @@ impl Config {
         let listen_addr: SocketAddr = env::var("LISTEN_ADDR")
             .map_err(anyhow::Error::new)
             .and_then(|v| v.parse().map_err(anyhow::Error::new))
-            .with_context(|| "failed to read LISTEN_ADDR from env")?;
+            .context("failed to read LISTEN_ADDR from env")?;
 
         let database_url =
-            env::var("DATABASE_URL").with_context(|| "failed to read DATABASE_URL from env")?;
+            env::var("DATABASE_URL").context("failed to read DATABASE_URL from env")?;
 
-        let cookie_key_path = env::var("COOKIE_KEY_PATH")
-            .with_context(|| "failed to read COOKIE_KEY_PATH from env")?;
+        let cookie_key_path =
+            env::var("COOKIE_KEY_PATH").context("failed to read COOKIE_KEY_PATH from env")?;
 
         let notifier_secret_path = env::var("NOTIFIER_SECRET_PATH")
-            .with_context(|| "failed to read NOTIFIER_SECRET_PATH from env")?;
+            .context("failed to read NOTIFIER_SECRET_PATH from env")?;
 
         let notifier_server_addr = env::var("NOTIFIER_SERVER_ADDR")
-            .with_context(|| "failed to read NOTIFIER_SERVER_ADDR from env")?;
+            .context("failed to read NOTIFIER_SERVER_ADDR from env")?;
 
         Ok(Self {
             listen_addr,

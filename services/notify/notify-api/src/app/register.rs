@@ -55,13 +55,13 @@ pub(super) async fn handler(
     let password_hash = Argon2::default()
         .hash_password(request.password.as_bytes(), &salt)
         .map_err(anyhow::Error::msg)
-        .with_context(|| "hashing password")?;
+        .context("hashing password")?;
 
     let created = state
         .repository
         .create_account(&request.username, &password_hash.to_string())
         .await
-        .with_context(|| "creating account")?;
+        .context("creating account")?;
 
     if created {
         Ok((

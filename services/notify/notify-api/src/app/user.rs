@@ -20,7 +20,7 @@ pub(super) async fn handler(
         .repository
         .list_user_notifications(&session.username)
         .await
-        .with_context(|| format!("listing user {} notifications", &session.username))?;
+        .context(format!("listing user {} notifications", &session.username))?;
 
     Ok(Json(UserResponse {
         username: session.username,

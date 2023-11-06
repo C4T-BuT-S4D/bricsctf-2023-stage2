@@ -107,7 +107,7 @@ fn load_or_generate_key(filepath: &str) -> Result<Key> {
         },
         Err(e) => {
             if e.kind() != io::ErrorKind::NotFound {
-                return Err(e).with_context(|| format!("unable to read cookie file {filepath}"));
+                return Err(e).context(format!("unable to read cookie file {filepath}"));
             }
 
             info!(
@@ -117,9 +117,10 @@ fn load_or_generate_key(filepath: &str) -> Result<Key> {
         }
     };
 
-    let key = Key::try_generate().with_context(|| "failed to generate new cookie key")?;
-    fs::write(filepath, key.master())
-        .with_context(|| format!("failed to save generated cookie key to file {filepath}"))?;
+    let key = Key::try_generate().context("failed to generate new cookie key")?;
+    fs::write(filepath, key.master()).context(format!(
+        "failed to save generated cookie key to file {filepath}"
+    ))?;
 
     Ok(key)
 }

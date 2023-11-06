@@ -7,6 +7,7 @@ mod smtp;
 
 use std::future::Future;
 use std::process;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use tokio_util::sync::CancellationToken;
@@ -15,8 +16,8 @@ use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::{error, info, warn, Level};
 
-const MAX_USER_AGE: time::Duration = time::Duration::minutes(30);
-const NOTIFIER_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+const MAX_USER_AGE: Duration = Duration::from_secs(30 * 60);
+const NOTIFIER_INTERVAL: Duration = Duration::from_secs(1);
 const NOTIFIER_USERNAME: &str = "notifier";
 const NOTIFIER_DOMAIN: &str = "notify";
 const NOTIFIER_SERVER_NAME: &str = "mail.notify";
@@ -69,7 +70,7 @@ async fn run() -> Result<()> {
     }
 
     match api_server_handle.await {
-        Ok(r) => r.with_context(|| "serving API")?,
+        Ok(r) => r.context("serving API")?,
         Err(e) => error!(error = format!("{:#}", e), "failed to join server future"),
     };
 
@@ -79,8 +80,8 @@ async fn run() -> Result<()> {
 async fn setup_repository(cfg: &config::Config) -> Result<repository::Repository> {
     repository::Repository::connect(
         &cfg.database_url,
-        std::time::Duration::from_secs(30),
-        std::time::Duration::from_secs(10),
+        Duration::from_secs(30),
+        Duration::from_secs(10),
         64,
     )
     .await
@@ -127,7 +128,10 @@ fn setup_api_server(
                         .on_request(DefaultOnRequest::new().level(Level::INFO))
                         .on_response(DefaultOnResponse::new().level(Level::INFO)),
                 )
-                .layer(session::layer(&cfg.cookie_key_path, MAX_USER_AGE)?),
+                .layer(session::layer(
+                    &cfg.cookie_key_path,
+                    MAX_USER_AGE.try_into().unwrap(),
+                )?),
         )
         .with_state(state);
 
