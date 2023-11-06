@@ -10,7 +10,7 @@ use axum::extract::{rejection::JsonRejection, FromRequest};
 use axum::http::{Request, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::{async_trait, routing, Extension, Json, Router};
+use axum::{async_trait, body::HttpBody, routing, Extension, Json, Router};
 use serde::Serialize;
 use tracing::error;
 
@@ -83,7 +83,7 @@ pub struct State {
     pub repository: Repository,
 }
 
-async fn authentication_layer<B>(
+async fn authentication_layer<B: HttpBody + Send + 'static>(
     Extension(session): Extension<Option<Session>>,
     mut request: Request<B>,
     next: Next<B>,

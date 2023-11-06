@@ -84,7 +84,7 @@ impl Repository {
         connection_timeout: Duration,
         request_timeout: Duration,
         max_connections: u32,
-    ) -> Result<Repository> {
+    ) -> Result<Self> {
         let pool = timeout(
             connection_timeout,
             PgPoolOptions::new()
@@ -93,7 +93,7 @@ impl Repository {
         )
         .await??;
 
-        Ok(Repository {
+        Ok(Self {
             pool,
             request_timeout,
         })

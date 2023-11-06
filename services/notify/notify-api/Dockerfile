@@ -1,8 +1,8 @@
 FROM rust:1.73.0 AS builder
 
 RUN --mount=type=cache,target=/usr/local/rustup \
-  rustup toolchain install nightly-2023-10-01 && \
-  rustup default nightly-2023-10-01
+  rustup toolchain install nightly-2023-11-01 && \
+  rustup default nightly-2023-11-01
 
 WORKDIR /build
 RUN mkdir dir

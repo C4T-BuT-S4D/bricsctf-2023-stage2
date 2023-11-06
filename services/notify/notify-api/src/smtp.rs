@@ -17,6 +17,15 @@ pub struct Notifier {
     server_addr: String,
 }
 
+pub struct NotifierOpts<'a> {
+    interval: Duration,
+    server_addr: &'a str,
+    server_name: &'a str,
+    email_domain: &'a str,
+    notifier_username: &'a str,
+    notifier_password: &'a str,
+}
+
 impl Notifier {
     pub async fn new(
         repository: repository::Repository,
@@ -34,7 +43,7 @@ impl Notifier {
         Ok(Self {
             repository,
             interval,
-            email: format!("{}@{}", username, domain),
+            email: format_email(&username, &domain),
             domain,
             server_name,
             server_addr,
@@ -44,12 +53,12 @@ impl Notifier {
     pub async fn run(self, cancel_token: CancellationToken) {
         loop {
             tokio::select! {
-              _ = cancel_token.cancelled() => {
+              () = cancel_token.cancelled() => {
                 info!("notifier shutting down due to cancellation");
                 break;
               }
 
-              _ = tokio::time::sleep(self.interval) => {
+              () = tokio::time::sleep(self.interval) => {
                 if let Err(e) = self.iteration().await {
                   error!(error=format!("{:#}", e), "unexpected error occurred during notifier iteration");
                 }
@@ -80,7 +89,7 @@ impl Notifier {
             let send_result = match connection
                 .send_mail(
                     self.email.clone(),
-                    format!("{}@{}", notification.username, self.domain),
+                    format_email(&notification.username, &self.domain),
                     notification.title,
                     notification.content,
                     5,
@@ -218,7 +227,7 @@ impl Connection {
         self.send_message(
             format!(
                 "From: {from}{CRLF}To: {to}{CRLF}Subject: {subject}{CRLF}{CRLF}{content}{CRLF}.",
-                CRLF = Connection::LINE_ENDING
+                CRLF = Self::LINE_ENDING
             ),
             1,
         )
@@ -230,7 +239,7 @@ impl Connection {
 
     async fn send_message(&mut self, msg: String, expected_lines: u32) -> Result<()> {
         self.tcp_write
-            .write_all((msg + Connection::LINE_ENDING).as_bytes())
+            .write_all((msg + Self::LINE_ENDING).as_bytes())
             .await
             .with_context(|| "writing request message")?;
 
@@ -247,10 +256,14 @@ impl Connection {
 
     async fn reconnect(&mut self) -> Result<()> {
         let new_connection =
-            Connection::connect(self.server_addr.clone(), self.server_name.clone()).await?;
+            Self::connect(self.server_addr.clone(), self.server_name.clone()).await?;
 
         *self = new_connection;
 
         Ok(())
     }
+}
+
+fn format_email(username: &str, domain: &str) -> String {
+    format!("{username}@{domain}")
 }

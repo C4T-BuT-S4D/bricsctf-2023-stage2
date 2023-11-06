@@ -63,14 +63,14 @@ pub(super) async fn handler(
         .await
         .with_context(|| "creating account")?;
 
-    if !created {
-        Ok((StatusCode::CONFLICT, Err(JsonError::new("Sorry, but someone has beaten you to the punch and taken your username! You should choose another one."))))
-    } else {
+    if created {
         Ok((
             StatusCode::CREATED,
             Ok(Extension(Session {
                 username: request.username,
             })),
         ))
+    } else {
+        Ok((StatusCode::CONFLICT, Err(JsonError::new("Sorry, but someone has beaten you to the punch and taken your username! You should choose another one."))))
     }
 }
