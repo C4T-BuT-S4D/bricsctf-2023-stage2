@@ -1,4 +1,16 @@
 services:
+  proxy:
+    image: nginx:1.25-alpine
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    volumes:
+      - ./conf/app.conf:/etc/nginx/conf.d/default.conf
+      - ./front/build:/front/build
+    depends_on:
+      - app
+      - renderer
+
   app:
     build:
       context: .
@@ -8,8 +20,6 @@ services:
         - renderer
     environment:
       - KTOR_LOG_LEVEL=INFO
-    ports:
-      - "8080:8080"
     volumes:
       - uploads:/uploads
     restart: unless-stopped
@@ -23,12 +33,21 @@ services:
       dockerfile: renderer.Dockerfile
     depends_on:
       - mongodb
+      - fileserver
     volumes:
       - uploads:/uploads/file
     restart: unless-stopped
     cpus: 1
     mem_limit: 1024m
     pids_limit: 4096
+
+  fileserver:
+    image: nginx:1.25-alpine
+    restart: unless-stopped
+    volumes:
+      - ./conf/files.conf:/etc/nginx/conf.d/default.conf
+      - uploads:/usr/share/nginx/html:ro
+
 
   mongodb:
     image: mongo:7.0.2

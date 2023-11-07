@@ -13,7 +13,7 @@ import org.cbsctf.session.UserSession
 
 fun Routing.menu(menuService: MenuService) {
     authenticate("auth-session", optional = true) {
-        get("/get/{menuId}") {
+        get("/api/get/{menuId}") {
             val menuId = call.parameters["menuId"] ?: ""
             val userId = call.principal<UserSession>()?.id ?: ""
             val shareToken = call.request.queryParameters["shareToken"]
@@ -21,12 +21,11 @@ fun Routing.menu(menuService: MenuService) {
             menuService.getMenu(menuId, userId, shareToken)?.let {
                 call.respond(it)
             } ?: run {
-                call.response.status(HttpStatusCode.NotFound)
-                call.respond(Error("Menu not found or you don't have access to it"))
+                call.respond(HttpStatusCode.NotFound, Error("Menu not found or you don't have access to it"))
             }
         }
 
-        get("/render/{menuId}") {
+        get("/api/render/{menuId}") {
             val menuId = call.parameters["menuId"] ?: ""
             val userId = call.principal<UserSession>()?.id ?: ""
             val shareToken = call.request.queryParameters["shareToken"]
@@ -34,40 +33,38 @@ fun Routing.menu(menuService: MenuService) {
             menuService.getMenu(menuId, userId, shareToken)?.let {
                 call.respond(menuService.renderPDF(it))
             } ?: run {
-                call.response.status(HttpStatusCode.NotFound)
-                call.respond(Error("Menu not found or you don't have access to it"))
+                call.respond(HttpStatusCode.NotFound, Error("Menu not found or you don't have access to it"))
             }
         }
     }
 
     authenticate("auth-session", optional = false) {
-        get("/get") {
+        get("/api/get") {
             val userSession = call.principal<UserSession>() ?: error("Invalid session")
             call.respond(menuService.getMenusByUser(userSession.id))
         }
 
-        post("/create") {
+        post("/api/create") {
             val userSession = call.principal<UserSession>() ?: error("Invalid session")
             val createMenuRequest = call.receive<CreateMenuRequest>()
             call.respond(menuService.createMenu(userSession.id, createMenuRequest.name))
         }
 
-        post("/update") {
+        post("/api/update") {
             val userSession = call.principal<UserSession>() ?: error("Invalid session")
 
             val updatedMenuRequest = call.receive<UpdateMenuRequest>()
             val updatedMenu = updatedMenuRequest.menu
 
             val updated = menuService.updateMenu(updatedMenu, userSession.id) ?: run {
-                call.response.status(HttpStatusCode.NotFound)
-                call.respond(Error("Menu not found or you don't have access to it"))
+                call.respond(HttpStatusCode.NotFound, Error("Menu not found or you don't have access to it"))
                 return@post
             }
 
             call.respond(updated)
         }
 
-        post("/delete/{menuId}") {
+        post("/api/delete/{menuId}") {
             val menuId = call.parameters["menuId"] ?: ""
             val userSession = call.principal<UserSession>() ?: error("Invalid session")
 

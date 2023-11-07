@@ -1,5 +1,6 @@
 package org.cbsctf.routes
 
+import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -22,20 +23,23 @@ data class UserFilesResponse(
 )
 
 fun Routing.files(fileService: FileService) {
-    get("/file/{filename...}") {
+    get("/api/file/{filename...}") {
         val filename = call.parameters.getAll("filename")?.joinToString("/") ?: error("Invalid filename")
 
-        call.respondFile(
-            File(
-                fileService.getFilePath(
-                    filename,
-                ),
+        val f = File(
+            fileService.getFilePath(
+                filename,
             ),
         )
+        if (f.exists()) {
+            call.respondFile(f)
+        } else {
+            call.respond(HttpStatusCode.NotFound)
+        }
     }
 
-    authenticate("auth-session", optional = true) {
-        post("/file/upload") {
+    authenticate("auth-session", optional = false) {
+        post("/api/file/upload") {
             val userSession = call.principal<UserSession>() ?: error("Invalid session")
 
             val multipart = call.receiveMultipart()
@@ -58,7 +62,7 @@ fun Routing.files(fileService: FileService) {
             call.respond(UploadFileResponse(filename))
         }
 
-        get("/file") {
+        get("/api/file") {
             val userSession = call.principal<UserSession>() ?: error("Invalid session")
 
             val files = fileService.getUserFiles(userSession.id)
