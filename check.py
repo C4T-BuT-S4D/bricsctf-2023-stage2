@@ -217,9 +217,13 @@ class Checker(BaseValidator):
 
         new_flag_id = err
         self._fatal(new_flag_id, "returned flag_id is empty")
+        if len(new_flag_id) > 1024:
+            self._fatal(new_flag_id, "returned flag_id is longer than 1024 characters")
 
         if self._attack_data:
             self._fatal(flag not in out, "flag is leaked in public data")
+            if len(out) > 1024:
+                self._fatal(out, "returned public data is longer than 1024 characters")
 
         return new_flag_id
 

@@ -97,7 +97,7 @@ impl Validate for CreateNotificationRequest {
                         .into(),
                 );
             } else if repetitions.count > 20 {
-                return Err("At the moment we allow repeating notifications only up to 10 additional times, sorry!".into());
+                return Err("At the moment we allow repeating notifications only up to 20 additional times, sorry!".into());
             } else if repetitions.interval < Duration::SECOND {
                 return Err(
                     "Please specify repetitions with at least a second as the interval between them.".into(),

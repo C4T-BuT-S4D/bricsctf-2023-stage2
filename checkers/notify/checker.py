@@ -1,42 +1,131 @@
 #!/usr/bin/env python3
 
+import bisect
 import json
 import secrets
 import string
 import sys
 import time
 import zlib
-from base64 import b85encode, b85decode
+from base64 import b85decode, b85encode
 from datetime import datetime, timedelta, timezone
 
 import notifylib
 import requests
 from checklib import Status, cquit, get_initialized_session, rnd_string
 from extended_checker import ExtendedChecker
+from wonderwords import RandomSentence, RandomWord
 
 ROUND_TIME = 60
-FLAG_LIFETIME = 15
+FLAG_LIFETIME = 10
+NOTIFICATION_DELAY_SLA_SECONDS = 2
+
+WORDS = sorted(RandomWord().filter(), key=len)
+SENTENCE_GENERATOR = RandomSentence()
+
+
+TITLE_SEPARATORS = sum(
+    [[" ", "\t"], list(string.punctuation)],
+    [],
+)
+TITLE_SEPARATORS += sum(
+    [[sp + sep, sep + sp] for sp in [" ", "\t"] for sep in TITLE_SEPARATORS], []
+)
+
+SENTENCE_SEPARATORS = TITLE_SEPARATORS + sum(
+    [[nl + sep, sep + nl] for nl in ["\n", "\r", "\r\n"] for sep in TITLE_SEPARATORS],
+    [],
+)
+
+
+# rnd_word instead of RandomWord() because it is incredibly unoptimized
+def rnd_word(max_length: int) -> str:
+    right = bisect.bisect_right(WORDS, max_length, key=len)
+    return secrets.choice(WORDS[:right])
+
+
+def rnd_sentence(max_length: int) -> str:
+    while True:
+        try:
+            variant = secrets.randbelow(4)
+            sentence = ""
+            match variant:
+                case 0:
+                    sentence = SENTENCE_GENERATOR.bare_bone_sentence()
+                case 1:
+                    sentence = SENTENCE_GENERATOR.bare_bone_with_adjective()
+                case 2:
+                    sentence = SENTENCE_GENERATOR.simple_sentence()
+                case _:
+                    sentence = SENTENCE_GENERATOR.sentence()
+
+            if len(sentence) < max_length:
+                return sentence
+        except:
+            pass
 
 
 def rnd_fake_flag():
     return "N" + rnd_string(30, string.ascii_uppercase + string.digits) + "="
 
 
+def rnd_data(length: int, separators: list[str]) -> str:
+    # just in case, because I don't trust python libraries...
+    while True:
+        try:
+            if length >= 30:
+                variant = secrets.randbelow(3)
+            else:
+                variant = secrets.randbelow(2)
+
+            match variant:
+                case 0:
+                    # Random garbage. Replace needed *just in case* a bad sequence is generated.
+                    return rnd_string(length, string.printable).replace(
+                        "\r\n.\r\n", ","
+                    )
+                case 1:
+                    # Words joined using a set of supplied separators.
+                    generated = rnd_word(max_length=length)
+                    max_separator_len = max(map(len, separators))
+                    while len(generated) < length - (5 + max_separator_len):
+                        separator = secrets.choice(separators)
+                        word = rnd_word(
+                            max_length=length - len(generated) - len(separator)
+                        )
+                        generated += separator + word
+                    return generated
+                case _:
+                    # Sentences join using a set of supplied separators.
+                    generated = rnd_sentence(max_length=length)
+                    max_separator_len = max(map(len, separators))
+                    while len(generated) < length - (30 + max_separator_len):
+                        separator = secrets.choice(separators)
+                        word = rnd_sentence(
+                            max_length=length - len(generated) - len(separator)
+                        )
+                        generated += separator + word
+                    return generated
+        except:
+            pass
+
+
+# rnd_title generates random data without any line/vertical separators
 def rnd_title(limit=50) -> str:
-    length = 1 + secrets.randbelow(limit)
-    return rnd_string(
-        length,
-        string.ascii_letters + string.digits,
-    )
+    length = 10 + secrets.randbelow(limit - 9)
+    return rnd_data(length, TITLE_SEPARATORS)
 
 
 def rnd_content(flag: str, limit=200) -> str:
-    length = 1 + secrets.randbelow(limit - len(flag))
-    content = rnd_string(length, string.ascii_letters + string.digits)
+    length = 40 + secrets.randbelow(limit - 39)
+    content = rnd_data(length, SENTENCE_SEPARATORS)
 
     if flag != "":
-        insert = secrets.randbelow(length)
-        content = content[:insert] + flag + content[insert:]
+        content = list(content)
+        content += [" "] * (length - len(content))
+        insert = secrets.randbelow(len(content) - len(flag) - 1)
+        content = content[:insert] + list(flag) + content[insert:]
+        content = "".join(content)[:length].rstrip(" ")
 
     return content
 
@@ -87,7 +176,7 @@ class Checker(ExtendedChecker):
         - Create new notification scheduled in rnd(3, 6) seconds with repeat count in rnd(0, 4) and repeat interval in rnd(0, 4)
         - Validate that user A info endpoint returns username and notification with empty sent_at field
         - Validate that user A can get the notification by its ID
-        - Wait until notification should be sent + 5 extra seconds, and perform these checks each second:
+        - Wait until notification should be sent + 2 extra seconds, and perform these checks each second:
             - Validate that an unauthenticated user can get the notification by its ID
             - Validate that user B can get the notification by its ID
         - Validate that user A info endpoint returns username and notification
@@ -192,7 +281,7 @@ class Checker(ExtendedChecker):
         while True:
             now = datetime.now(timezone.utc)
             if now > want_notification_public_info.plan[-1].planned_at + timedelta(
-                seconds=6
+                seconds=NOTIFICATION_DELAY_SLA_SECONDS + 1
             ):
                 break
 
@@ -210,7 +299,7 @@ class Checker(ExtendedChecker):
                 notifylib.Endpoints.GET_NOTIFICATION,
                 Status.MUMBLE,
             )
-            time.sleep(max(0, 0.3 - (time.time() - start)))
+            time.sleep(max(0, 0.5 - (time.time() - start)))
 
             # Check access by anonymous user
             start = time.time()
@@ -226,7 +315,7 @@ class Checker(ExtendedChecker):
                 notifylib.Endpoints.GET_NOTIFICATION,
                 Status.MUMBLE,
             )
-            time.sleep(max(0, 0.3 - (time.time() - start)))
+            time.sleep(max(0, 0.5 - (time.time() - start)))
 
         # Now check the notification from the original user's point of view
         for i, plan in enumerate(want_notification_public_info.plan):
@@ -291,7 +380,7 @@ class Checker(ExtendedChecker):
                 with_flag = False
 
             notify_in = 5 + secrets.randbelow(15)
-            repeat_interval = 45 + secrets.randbelow(10)
+            repeat_interval = 25 + secrets.randbelow(15)
             repeat_count = min(
                 (FLAG_LIFETIME * ROUND_TIME + ROUND_TIME) // repeat_interval, 20
             )
@@ -456,7 +545,8 @@ class Checker(ExtendedChecker):
                 want.plan[i].sent_at = got_plan.sent_at
             else:
                 self.assert_gt(
-                    want_plan.planned_at + timedelta(seconds=5),
+                    want_plan.planned_at
+                    + timedelta(seconds=NOTIFICATION_DELAY_SLA_SECONDS),
                     now,
                     f"{endpoint} didn't return sent_at for too long after planned_at",
                     Status.MUMBLE,
