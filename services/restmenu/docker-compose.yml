@@ -34,8 +34,6 @@ services:
     depends_on:
       - mongodb
       - fileserver
-    volumes:
-      - uploads:/uploads/file
     restart: unless-stopped
     cpus: 1
     mem_limit: 1024m
@@ -54,6 +52,16 @@ services:
     volumes:
       - dbdata:/data/db
     restart: unless-stopped
+
+  cleaner:
+    image: ghcr.io/c4t-but-s4d/dedcleaner:latest
+    restart: unless-stopped
+    volumes:
+      - uploads:/uploads
+    environment:
+      - DELETE_AFTER=30m
+      - SLEEP=5m
+      - DIRS=/uploads/**/*
 volumes:
   dbdata:
   uploads:
