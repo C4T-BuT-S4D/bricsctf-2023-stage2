@@ -3,6 +3,7 @@ use crate::session::Session;
 
 use anyhow::Context;
 use axum::{extract::State, http::StatusCode, Extension, Json};
+use pwhash::md5_crypt;
 use serde::Deserialize;
 
 const INVALID_CREDENTIALS: &str =
@@ -31,8 +32,7 @@ pub(super) async fn handler(
         ));
     };
 
-    // The ordering here is deliberate so that password verification always takes
-    if bcrypt::verify(request.password.as_bytes(), &password_hash).is_err() {
+    if !md5_crypt::verify(request.password.as_bytes(), &password_hash) {
         return Ok((
             StatusCode::UNAUTHORIZED,
             Err(JsonError::new(INVALID_CREDENTIALS)),

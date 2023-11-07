@@ -65,10 +65,18 @@ class Checker(ExtendedChecker):
     def action(self, action, *args, **kwargs):
         try:
             super(Checker, self).action(action, *args, **kwargs)
-        except requests.exceptions.ConnectionError:
-            self.cquit(Status.DOWN, "Connection error", "Got API connection error")
-        except requests.exceptions.Timeout:
-            self.cquit(Status.DOWN, "Request timeout", "Got API timeout error")
+        except requests.exceptions.ConnectionError as e:
+            self.cquit(
+                Status.DOWN,
+                "Connection error",
+                f"Got API connection error on {e.request.url}",
+            )
+        except requests.exceptions.Timeout as e:
+            self.cquit(
+                Status.DOWN,
+                "Request timeout",
+                f"Got API timeout error on {e.request.url}",
+            )
 
     def check(self):
         """

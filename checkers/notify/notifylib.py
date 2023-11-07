@@ -122,7 +122,7 @@ class CheckMachine:
         resp = session.post(
             self.url("register"),
             json={"username": username, "password": password},
-            timeout=0.5,
+            timeout=1,
         )
 
         self.c.check_status(resp, 201, Endpoints.REGISTER, Status.MUMBLE)
@@ -140,7 +140,7 @@ class CheckMachine:
         resp = session.post(
             self.url("login"),
             json={"username": username, "password": password},
-            timeout=0.5,
+            timeout=1,
         )
 
         self.c.check_status(resp, 200, Endpoints.LOGIN, status)
@@ -153,7 +153,7 @@ class CheckMachine:
         )
 
     def user_info(self, session: requests.Session) -> UserInfo:
-        resp = session.get(self.url("user"), timeout=0.5)
+        resp = session.get(self.url("user"), timeout=1)
 
         self.c.check_status(resp, 200, Endpoints.USER_INFO, Status.MUMBLE)
 
@@ -222,7 +222,7 @@ class CheckMachine:
                 "interval": notification.repetitions.interval,
             }
 
-        resp = session.post(self.url("notifications"), json=request, timeout=0.5)
+        resp = session.post(self.url("notifications"), json=request, timeout=1)
 
         self.c.check_status(resp, 201, Endpoints.CREATE_NOTIFICATION, Status.MUMBLE)
 

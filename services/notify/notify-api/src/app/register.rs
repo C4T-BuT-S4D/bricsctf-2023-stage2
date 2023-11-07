@@ -4,7 +4,9 @@ use crate::session::Session;
 
 use anyhow::{Context, Result};
 use axum::{extract::State, http::StatusCode, Extension};
+use base64::Engine;
 use once_cell::sync::Lazy;
+use pwhash::md5_crypt;
 use rand::RngCore;
 use regex::Regex;
 use serde::Deserialize;
@@ -12,6 +14,11 @@ use serde::Deserialize;
 static USERNAME_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^[a-z][a-z0-9_-]+[a-z0-9]$").expect("failed to construct username regex")
 });
+
+const SALT_BASE64_ENGINE: base64::engine::GeneralPurpose = base64::engine::GeneralPurpose::new(
+    &base64::alphabet::CRYPT,
+    base64::engine::general_purpose::NO_PAD,
+);
 
 #[derive(Clone, Deserialize)]
 pub(super) struct RegistrationRequest {
@@ -51,15 +58,15 @@ pub(super) async fn handler(
     ValidatedJson(request): ValidatedJson<RegistrationRequest>,
 ) -> Result<(StatusCode, Result<Extension<Session>, JsonError>), LoggedError> {
     let salt = {
-        let mut s = [0u8; 16];
+        let mut s = [0u8; 6];
         APP_RNG.with_borrow_mut(|rng| rng.fill_bytes(&mut s));
-        s
+        format!("$1${}$", SALT_BASE64_ENGINE.encode(s))
     };
 
-    let password_hash =
-        bcrypt::hash_with_salt(request.password.as_bytes(), bcrypt::DEFAULT_COST, salt)
-            .map_err(anyhow::Error::new)
-            .context("hashing password")?;
+    #[allow(deprecated)]
+    let password_hash = md5_crypt::hash_with(&*salt, request.password.as_bytes())
+        .map_err(anyhow::Error::new)
+        .context("hashing password")?;
 
     let created = state
         .repository
