@@ -472,14 +472,14 @@ class StructureValidator(BaseValidator):
 
             for service in services:
                 for database in databases:
-                    self._error(
+                    self._warning(
                         service in dependencies and database in dependencies[service],
                         f"service {service} may need to depends_on database {database}",
                     )
 
             for proxy in proxies:
                 for service in services:
-                    self._error(
+                    self._warning(
                         proxy in dependencies and service in dependencies[proxy],
                         f"proxy {proxy} may need to depends_on service {service}",
                     )

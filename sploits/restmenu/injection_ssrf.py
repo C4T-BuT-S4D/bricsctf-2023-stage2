@@ -31,7 +31,7 @@ def render_menu(s: requests.Session, base: str, mid: str):
 
 
 def main(host, hint):
-    url = f"http://{host}:{PORT}"
+    url = f"http://{host}:{PORT}/api"
 
     us = requests.Session()
     register(us, url, "exploituser", "exploituserpass")

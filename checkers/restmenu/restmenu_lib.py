@@ -8,7 +8,7 @@ WEB_PORT = 8080
 class CheckMachine:
     @property
     def url(self):
-        return f'http://{self.c.host}:{self.web_port}'
+        return f'http://{self.c.host}:{self.web_port}/api'
 
     def __init__(self, checker: BaseChecker):
         self.c = checker
