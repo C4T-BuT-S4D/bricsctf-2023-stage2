@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import urljoin
+from functools import cache
 
 import requests
 from checklib import Status
@@ -18,7 +19,7 @@ class Endpoints:
     USER_INFO = "GET /user"
 
 
-@dataclass
+@dataclass(frozen=True)
 class NotificationCreationRepetitions:
     count: int
     interval: int
@@ -31,13 +32,14 @@ class NotificationCreationRepetitions:
         return NotificationCreationRepetitions(count=d["c"], interval=d["i"])
 
 
-@dataclass
+@dataclass(frozen=True)
 class NotificationCreationOpts:
     title: str
     content: str
     notify_at: datetime
     repetitions: Optional[NotificationCreationRepetitions]
 
+    @cache
     def to_private_info(self, id: str) -> "PrivateNotificationInfo":
         return PrivateNotificationInfo(
             id=id,
@@ -46,9 +48,11 @@ class NotificationCreationOpts:
             plan=self.repetitions_to_plan(),
         )
 
+    @cache
     def to_public_info(self) -> "PublicNotificationInfo":
         return PublicNotificationInfo(title=self.title, plan=self.repetitions_to_plan())
 
+    @cache
     def repetitions_to_plan(self) -> list["NotificationPlan"]:
         plan = [NotificationPlan(planned_at=self.notify_at, sent_at=None)]
 

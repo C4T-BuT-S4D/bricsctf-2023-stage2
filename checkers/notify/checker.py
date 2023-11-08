@@ -45,6 +45,10 @@ TITLE_RANDOM_ALPHABET = (
 CONTENT_RANDOM_ALPHABET = string.printable
 
 
+def rnd_fake_flag():
+    return "N" + rnd_string(30, string.ascii_uppercase + string.digits) + "="
+
+
 # rnd_word instead of RandomWord() because it is incredibly unoptimized
 def rnd_word(max_length: int) -> str:
     right = bisect.bisect_right(WORDS, max_length, key=len)
@@ -71,10 +75,6 @@ def rnd_sentence(max_length: int) -> str:
                 return sentence
         except:
             pass
-
-
-def rnd_fake_flag():
-    return "N" + rnd_string(30, string.ascii_uppercase + string.digits) + "="
 
 
 def rnd_data(length: int, random_alphabet: str, separators: list[str]) -> str:
@@ -300,7 +300,7 @@ class Checker(ExtendedChecker):
             self.log(
                 f"Notification {notification_id} info by user B: {got_notification_info}"
             )
-            self.check_public_notification_info(
+            self.check_notification_status(
                 got_notification_info,
                 want_notification_public_info,
                 notifylib.Endpoints.GET_NOTIFICATION,
@@ -316,7 +316,7 @@ class Checker(ExtendedChecker):
             self.log(
                 f"Notification {notification_id} info by no user: {got_notification_info}"
             )
-            self.check_public_notification_info(
+            self.check_notification_status(
                 got_notification_info,
                 want_notification_public_info,
                 notifylib.Endpoints.GET_NOTIFICATION,
@@ -369,6 +369,7 @@ class Checker(ExtendedChecker):
                 len(emails),
                 len(want_notification_private_info.plan),
                 "IMAP fetch returned invalid number of emails after notification completion",
+                Status.MUMBLE,
             )
 
             self.check_emails(emails, want_notification_private_info, Status.MUMBLE)
@@ -451,6 +452,15 @@ class Checker(ExtendedChecker):
         )
 
     def get(self, flag_id: str, flag: str, _vuln: str):
+        """
+        Get algorithm:
+        - Login using the flag_id user
+        - Validate the current status of each notification:
+            - Through the public endpoint with an unauthenticated session
+            - Through the user endpoint with the authenticated session
+        - Validate the emails created by each notification via IMAP
+        """
+
         data = json.loads(zlib.decompress(b85decode(flag_id)).decode())
         username = data["u"]
         password = data["p"]
@@ -459,16 +469,17 @@ class Checker(ExtendedChecker):
         ]
 
         session = get_initialized_session()
+        unauth_session = get_initialized_session()
 
         self.notify_cm.login(session, username, password, Status.CORRUPT)
         self.log(f"Logged in as {username}")
 
         for notification_id, notification in notifications:
             got_notification_info = self.notify_cm.get_notification(
-                session, notification_id, Status.CORRUPT
+                unauth_session, notification_id, Status.CORRUPT
             )
             self.log(f"Notification {notification_id} info: {got_notification_info}")
-            self.check_public_notification_info(
+            self.check_notification_status(
                 got_notification_info,
                 notification.to_public_info(),
                 notifylib.Endpoints.GET_NOTIFICATION,
@@ -495,7 +506,7 @@ class Checker(ExtendedChecker):
         )
 
         for notification_id, notification in notifications:
-            self.check_public_notification_info(
+            self.check_notification_status(
                 got_notifications[notification_id],
                 notification.to_private_info(notification_id),
                 notifylib.Endpoints.USER_INFO,
@@ -509,9 +520,49 @@ class Checker(ExtendedChecker):
                 Status.CORRUPT,
             )
 
+        with maillib.CheckMachine(self) as mail_cm:
+            mail_cm.login(username, password, Status.MUMBLE)
+            self.log(f"Logged in to IMAP as {username}")
+
+            for notification_id, notification in notifications:
+                now = datetime.now(timezone.utc)
+                expected_count = len(
+                    list(
+                        filter(
+                            lambda plan: now
+                            > plan.planned_at
+                            + timedelta(seconds=NOTIFICATION_DELAY_SLA_SECONDS),
+                            notification.repetitions_to_plan(),
+                        )
+                    )
+                )
+                self.log(
+                    f"Expect at least {expected_count} emails for notification {notification}"
+                )
+
+                emails = mail_cm.fetch_by_subject(
+                    notification.title,
+                    expected_count,
+                    Status.CORRUPT,
+                )
+                self.log(f"Received emails: {emails}")
+
+                self.assert_eq(
+                    len(emails),
+                    expected_count,
+                    "IMAP fetch returned invalid number of emails after notification completion",
+                    Status.CORRUPT,
+                )
+
+                self.check_emails(
+                    emails,
+                    notification.to_private_info(notification_id),
+                    Status.CORRUPT,
+                )
+
         self.cquit(Status.OK)
 
-    def check_public_notification_info(
+    def check_notification_status(
         self,
         got: notifylib.PublicNotificationInfo | notifylib.PrivateNotificationInfo,
         want: notifylib.PublicNotificationInfo | notifylib.PrivateNotificationInfo,
@@ -576,12 +627,32 @@ class Checker(ExtendedChecker):
                     f"{endpoint} didn't return sent_at for too long after planned_at",
                     Status.MUMBLE,
                 )
-    
-    def check_emails(self, got: list[maillib.Email], want: notifylib.PrivateNotificationInfo, status: Status):
+
+    def check_emails(
+        self,
+        got: list[maillib.Email],
+        want: notifylib.PrivateNotificationInfo,
+        status: Status,
+    ):
         for email in got:
-            self.assert_eq("notifier@notify", email.from_, "IMAP fetch returned invalid notification sender", Status.MUMBLE)
-            self.assert_eq(want.title, email.subject, "IMAP fetch returned invalid notification subject", status)
-            self.assert_eq(want.content, email.text, "IMAP fetch returned invalid notification content", status)
+            self.assert_eq(
+                "notifier@notify",
+                email.from_,
+                "IMAP fetch returned invalid notification sender",
+                Status.MUMBLE,
+            )
+            self.assert_eq(
+                want.title,
+                email.subject,
+                "IMAP fetch returned invalid notification subject",
+                status,
+            )
+            self.assert_eq(
+                want.content,
+                email.text,
+                "IMAP fetch returned invalid notification content",
+                status,
+            )
 
 
 if __name__ == "__main__":
