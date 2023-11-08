@@ -31,7 +31,7 @@ export default function Welcome() {
       password: "",
     },
     validate: {
-      username: (value) => {
+      username(value) {
         if (!/^[a-z][a-z0-9_-]+[a-z0-9]$/.test(value)) {
           return "We currently allow usernames consisting only of lowercase english letters, numbers, and dashes/underscores in between the rest! Sorry!";
         }
@@ -42,7 +42,7 @@ export default function Welcome() {
           return "Your username is too long! Please shorten it to 15 characters or less.";
         }
       },
-      password: (value) => {
+      password(value) {
         if (value.length < 8) {
           return "Please lengthen your password to at least 8 characters, it is dangerously short right now!";
         } else if (value.length > 30) {

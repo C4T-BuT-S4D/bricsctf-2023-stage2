@@ -94,9 +94,37 @@ export function useLogout() {
   });
 }
 
+export type CreateNotificationRepetitions = {
+  count: number;
+  interval: number;
+};
+
+export type CreateNotificationRequest = {
+  title: string;
+  content: string;
+  notify_at: string;
+  repetitions?: CreateNotificationRepetitions;
+};
+
+export function useCreateNotification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn(notification: CreateNotificationRequest) {
+      return ky.post("/api/notifications", { json: notification }).json<"">();
+    },
+    onError(error) {
+      return handleMutationError(error, "", [422]);
+    },
+    onSuccess() {
+      return queryClient.invalidateQueries({ queryKey: ["user"] });
+    },
+  });
+}
+
 export type NotificationPlan = {
   planned_at: Date;
-  sent_at: Date;
+  sent_at: Date | null;
 };
 
 export type Notification = {
@@ -112,5 +140,14 @@ export type User = {
 };
 
 export function useUser() {
-  return useQuery("user", () => ky.get("/api/user").json<User>());
+  return useQuery("user", async () => {
+    let response = await ky.get("/api/user").json<User>();
+    response.notifications.forEach((notification) => {
+      notification.plan = notification.plan.map((plan) => ({
+        planned_at: new Date(plan.planned_at),
+        sent_at: plan.sent_at ? new Date(plan.sent_at) : null,
+      }));
+    });
+    return response;
+  });
 }

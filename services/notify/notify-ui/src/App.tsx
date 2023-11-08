@@ -1,10 +1,10 @@
-import { notifications } from "@mantine/notifications";
-import * as api from "./api";
-import Welcome from "./pages/Welcome";
-import Home from "./pages/Home";
-import { HTTPError } from "ky";
 import { LoadingOverlay } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
+import { HTTPError } from "ky";
 import React from "react";
+import * as api from "./api";
+import Home from "./pages/Home";
+import Welcome from "./pages/Welcome";
 
 export default function App() {
   const { isLoading, isError, data, error } = api.useUser();
