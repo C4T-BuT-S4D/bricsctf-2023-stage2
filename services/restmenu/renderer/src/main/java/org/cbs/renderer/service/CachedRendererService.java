@@ -33,7 +33,7 @@ public class CachedRendererService implements RendererService {
     @Override
     public Optional<byte[]> render(String id) throws Exception {
         File f = getCacheFile(id);
-        if (!f.exists()) {
+        if (!f.exists() || f.length() == 0) {
             logger.atInfo().log(String.format("Cache not found for %s", id));
             return renderAndCache(id);
         }
