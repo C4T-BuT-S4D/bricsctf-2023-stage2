@@ -8,6 +8,7 @@
   }
   
   header -server
-  respond 404
+  root * /var/www/notify
+  file_server
 }
 

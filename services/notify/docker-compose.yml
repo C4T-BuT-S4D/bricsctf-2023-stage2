@@ -6,6 +6,7 @@ services:
     pids_limit: 256
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./notify-ui:/var/www/notify:ro
       - caddy-data:/data
       - caddy-config:/config
     ports:
