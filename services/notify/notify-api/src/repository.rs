@@ -243,7 +243,7 @@ impl Repository {
               FROM notification_queue
               WHERE planned_at < NOW()
                 AND state = 'planned'
-              LIMIT 100
+              LIMIT 500
             )
             UPDATE notification_queue nq
             SET state = 'inprogress'

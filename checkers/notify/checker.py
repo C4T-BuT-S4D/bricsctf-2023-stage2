@@ -33,16 +33,15 @@ TITLE_SEPARATORS += sum(
     [[sp + sep, sep + sp] for sp in [" ", "\t"] for sep in TITLE_SEPARATORS], []
 )
 
-CONTENT_SEPARATORS = TITLE_SEPARATORS + sum(
-    [[nl + sep, sep + nl] for nl in ["\n", "\r", "\r\n"] for sep in TITLE_SEPARATORS],
+CONTENT_SEPARATORS = TITLE_SEPARATORS + ["..", "..."]
+CONTENT_SEPARATORS += sum(
+    [[nl + sep, sep + nl] for nl in ["\n", "\r", "\r\n"] for sep in CONTENT_SEPARATORS],
     [],
 )
 
-TITLE_RANDOM_ALPHABET = (
-    string.ascii_letters + string.punctuation + string.digits + " \t"
-)
-
+TITLE_RANDOM_ALPHABET = string.ascii_letters + string.punctuation + string.digits
 CONTENT_RANDOM_ALPHABET = string.printable
+ALPHABET_WITHOUT_DOT = list(set(CONTENT_RANDOM_ALPHABET).difference({"."}))
 
 
 def rnd_fake_flag():
@@ -132,6 +131,17 @@ def rnd_content(flag: str, limit=200) -> str:
         insert = secrets.randbelow(len(content) - len(flag) - 1)
         content = content[:insert] + list(flag) + content[insert:]
         content = "".join(content)[:length].rstrip(" ")
+
+    # Single dots at the start aren't valid in SMTP, they must be escaped,
+    # which isn't done by default in the service.
+    lines = content.split("\n")
+    lines = [
+        secrets.choice(ALPHABET_WITHOUT_DOT) + line[1:]
+        if line.startswith(".")
+        else line
+        for line in lines
+    ]
+    content = "\n".join(lines)
 
     return content
 

@@ -24,6 +24,7 @@ pub struct NotifierOpts<'a> {
     pub notifier_password: &'a str,
 }
 
+/// SMTP-based email notification scheduler & sender.
 #[derive(Clone)]
 pub struct Notifier {
     repository: repository::Repository,
@@ -61,6 +62,7 @@ impl Notifier {
         })
     }
 
+    /// Run iteration each interval until canceled.
     pub async fn run(self, cancel_token: CancellationToken) {
         loop {
             tokio::select! {
@@ -78,6 +80,7 @@ impl Notifier {
         }
     }
 
+    /// Launch a single iteration if a notification batch to be sent out is ready.
     async fn launch_iteration(&self) -> Result<()> {
         let batch = self
             .repository
@@ -92,6 +95,10 @@ impl Notifier {
         Ok(())
     }
 
+    /// Start a new connection to the SMTP server and begin sending out the notifications in a fair
+    /// order with automatic retries & reconnects. If the service is stopped during an iteration, 
+    /// notifications which haven't been fully sent out or the status of which hasn't been saved
+    /// will be resent, which is fine.
     async fn iteration(self, batch: Vec<repository::NotificationQueueElement>) -> Result<()> {
         info!("notifier processing batch of {} elements", batch.len());
 

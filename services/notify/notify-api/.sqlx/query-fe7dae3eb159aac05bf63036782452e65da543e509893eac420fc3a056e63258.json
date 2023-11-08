@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH batch_elements AS (\n              SELECT notification_id, planned_at\n              FROM notification_queue\n              WHERE planned_at < NOW()\n                AND state = 'planned'\n              LIMIT 500\n            )\n            UPDATE notification_queue nq\n            SET state = 'inprogress'\n            FROM notification n\n            WHERE nq.notification_id = n.id\n              AND EXISTS (\n                SELECT 1\n                FROM batch_elements be\n                WHERE be.notification_id = nq.notification_id\n                  AND be.planned_at = nq.planned_at\n              )\n            RETURNING n.id, n.username, n.title, n.content, nq.planned_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "username",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "planned_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fe7dae3eb159aac05bf63036782452e65da543e509893eac420fc3a056e63258"
+}

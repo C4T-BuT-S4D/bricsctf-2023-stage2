@@ -71,7 +71,9 @@ class CheckMachine:
 
     def _fetch_by_subject(self, subject: str, limit: int) -> list[Email]:
         messages = []
-        for message in self.mailbox.fetch(AND(subject=subject), limit=limit, bulk=True):
+        for message in self.mailbox.fetch(
+            AND(subject=subject), charset="UTF-8", limit=limit, bulk=True
+        ):
             messages.append(
                 Email(from_=message.from_, subject=message.subject, text=message.text)
             )
