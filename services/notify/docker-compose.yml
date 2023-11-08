@@ -1,4 +1,18 @@
 services:
+  caddy:
+    image: caddy:2.7.5-alpine
+    cpus: 1
+    mem_limit: 512M
+    pids_limit: 256
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    ports:
+      - 7777:7777
+    depends_on:
+      - notify-api
+    restart: unless-stopped
   notify-api:
     build: notify-api
     cpus: 2
@@ -14,8 +28,6 @@ services:
       NOTIFIER_SECRET_PATH: /notifier/secret/value
       NOTIFIER_SERVER_ADDR: stalwart:587
       NOTIFIER_ADMIN_ADDR: http://stalwart:8080
-    ports:
-      - 7777:7777
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,3 +71,5 @@ volumes:
   postgres-data:
   notifier-secret:
   notify-api-cookie-key:
+  caddy-data:
+  caddy-config:
