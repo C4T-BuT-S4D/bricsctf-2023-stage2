@@ -34,6 +34,8 @@ services:
     depends_on:
       - mongodb
       - fileserver
+    volumes:
+      - render-cache:/render_cache
     restart: unless-stopped
     cpus: 1
     mem_limit: 1024m
@@ -58,10 +60,12 @@ services:
     restart: unless-stopped
     volumes:
       - uploads:/uploads
+      - render-cache:/render_cache
     environment:
       - DELETE_AFTER=30m
       - SLEEP=5m
-      - DIRS=/uploads/**/*
+      - DIRS=/uploads/**/*,/render_cache/*
 volumes:
   dbdata:
   uploads:
+  render-cache:
