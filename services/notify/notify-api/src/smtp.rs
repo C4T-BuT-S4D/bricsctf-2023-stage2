@@ -67,7 +67,7 @@ impl Notifier {
         loop {
             tokio::select! {
               () = cancel_token.cancelled() => {
-                info!("notifier shutting down due to cancelation");
+                info!("notifier shutting down due to cancellation");
                 break;
               }
 
@@ -96,7 +96,7 @@ impl Notifier {
     }
 
     /// Start a new connection to the SMTP server and begin sending out the notifications in a fair
-    /// order with automatic retries & reconnects. If the service is stopped during an iteration, 
+    /// order with automatic retries & reconnects. If the service is stopped during an iteration,
     /// notifications which haven't been fully sent out or the status of which hasn't been saved
     /// will be resent, which is fine.
     async fn iteration(self, batch: Vec<repository::NotificationQueueElement>) -> Result<()> {

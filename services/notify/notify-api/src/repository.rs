@@ -1,7 +1,8 @@
 use std::future::Future;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use sqlx::{postgres::PgPoolOptions, query, query_as, PgPool};
+use sqlx_postgres::types::PgInterval;
 use time::{Duration, OffsetDateTime};
 use tokio::time::{timeout, Timeout};
 use uuid::Uuid;
@@ -135,6 +136,40 @@ impl Repository {
             Err(sqlx::Error::RowNotFound) => Ok(None),
             Err(e) => Err(anyhow::Error::new(e)),
         }
+    }
+
+    /// List the usernames of accounts older than the specified maximum age, limiting the resulting batch by 100 elements.
+    pub async fn list_old_account_usernames(
+        &self,
+        max_age: std::time::Duration,
+    ) -> Result<Vec<String>> {
+        let interval = PgInterval::try_from(max_age)
+            .map_err(anyhow::Error::msg)
+            .context("converting max_age to PgInterval")?;
+
+        let q = query!(
+            r#"SELECT username
+            FROM account
+            WHERE created_at < now() - $1::interval
+              AND username NOT IN (
+                SELECT username
+                FROM group_member
+                WHERE group_name = 'superusers'
+              )
+            LIMIT 100"#,
+            interval,
+        );
+
+        let usernames = self.timeout(q.fetch_all(&self.pool)).await??;
+
+        Ok(usernames.into_iter().map(|v| v.username).collect())
+    }
+
+    /// Delete an account by its username, as well as any notifications referencing the account.
+    pub async fn delete_account_by_username(&self, username: &str) -> Result<()> {
+        let q = query!(r#"DELETE FROM account WHERE username = $1"#, username);
+        self.timeout(q.execute(&self.pool)).await??;
+        Ok(())
     }
 
     /// Create new notification entry and add all the required notification plans to the queue.
