@@ -1,6 +1,6 @@
+import { notifications } from "@mantine/notifications";
 import ky, { HTTPError } from "ky";
 import { useMutation, useQuery, useQueryClient } from "react-query";
-import { notifications } from "@mantine/notifications";
 
 type JsonError = {
   error: string;
@@ -71,6 +71,22 @@ export function useLogin() {
     },
     onError(error) {
       return handleMutationError(error, "Login error", [401]);
+    },
+    onSuccess() {
+      return queryClient.invalidateQueries({ queryKey: ["user"] });
+    },
+  });
+}
+
+export function useLogout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn() {
+      return ky.post("/api/logout").json<"">();
+    },
+    onError(error) {
+      return handleMutationError(error, "", []);
     },
     onSuccess() {
       return queryClient.invalidateQueries({ queryKey: ["user"] });

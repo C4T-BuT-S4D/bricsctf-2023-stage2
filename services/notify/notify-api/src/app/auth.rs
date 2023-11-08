@@ -3,7 +3,7 @@ use crate::rng::APP_RNG;
 use crate::session::Session;
 
 use anyhow::{Context, Result};
-use axum::{extract::State, http::StatusCode, Extension};
+use axum::{extract::State, http::StatusCode, Extension, Json};
 use base64::Engine;
 use once_cell::sync::Lazy;
 use pwhash::md5_crypt;
@@ -53,7 +53,7 @@ impl Validate for RegistrationRequest {
 }
 
 /// Handler implementing the POST /register API endpoint.
-pub(super) async fn handler(
+pub(super) async fn register_handler(
     State(state): State<app::State>,
     ValidatedJson(request): ValidatedJson<RegistrationRequest>,
 ) -> Result<(StatusCode, Result<Extension<Session>, JsonError>), LoggedError> {
@@ -79,9 +79,60 @@ pub(super) async fn handler(
             StatusCode::CREATED,
             Ok(Extension(Session {
                 username: request.username,
+                expire: false,
             })),
         ))
     } else {
         Ok((StatusCode::CONFLICT, Err(JsonError::new("Sorry, but someone has beaten you to the punch and taken your username! You should choose another one."))))
     }
+}
+
+const INVALID_CREDENTIALS: &str =
+    "Invalid credentials supplied, please validate the username and password.";
+
+#[derive(Clone, Deserialize)]
+pub(super) struct LoginRequest {
+    username: String,
+    password: String,
+}
+
+/// Handler implementing the POST /login API endpoint.
+pub(super) async fn login_handler(
+    State(state): State<app::State>,
+    Json(request): Json<LoginRequest>,
+) -> Result<(StatusCode, Result<Extension<Session>, JsonError>), LoggedError> {
+    let Some(password_hash) = state
+        .repository
+        .get_account_password_hash(&request.username)
+        .await
+        .context(format!("getting account {}", &request.username))?
+    else {
+        return Ok((
+            StatusCode::UNAUTHORIZED,
+            Err(JsonError::new(INVALID_CREDENTIALS)),
+        ));
+    };
+
+    if !md5_crypt::verify(request.password.as_bytes(), &password_hash) {
+        return Ok((
+            StatusCode::UNAUTHORIZED,
+            Err(JsonError::new(INVALID_CREDENTIALS)),
+        ));
+    }
+
+    Ok((
+        StatusCode::OK,
+        Ok(Extension(Session {
+            username: request.username,
+            expire: false,
+        })),
+    ))
+}
+
+/// Handler implementing the POST /logout API endpoint.
+pub(super) async fn logout_handler() -> Extension<Session> {
+    Extension(Session {
+        username: String::new(),
+        expire: true,
+    })
 }

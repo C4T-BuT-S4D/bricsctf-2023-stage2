@@ -19,6 +19,7 @@ const SESSION_COOKIE_NAME: &str = "notify_session";
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Session {
     pub username: String,
+    pub expire: bool,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -73,16 +74,23 @@ pub fn layer<B: HttpBody + Send + 'static>(
                 let response = next.run(request).await;
 
                 if let Some(session) = response.extensions().get::<Session>() {
-                    let expires_at = OffsetDateTime::now_utc() + session_age;
+                    let expires_at: OffsetDateTime;
+                    let value: String;
 
-                    let serialized_session = serde_json::to_string(&WrappedSession {
-                        inner: session.clone(),
-                        expires_at,
-                    })
-                    .expect("failed to serialize session data");
+                    if session.expire {
+                        expires_at = OffsetDateTime::UNIX_EPOCH;
+                        value = String::new();
+                    } else {
+                        expires_at = OffsetDateTime::now_utc() + session_age;
+                        value = serde_json::to_string(&WrappedSession {
+                            inner: session.clone(),
+                            expires_at,
+                        })
+                        .expect("failed to serialize session data");
+                    }
 
                     jar = jar.add(
-                        Cookie::build(SESSION_COOKIE_NAME, serialized_session)
+                        Cookie::build(SESSION_COOKIE_NAME, value)
                             .expires(expires_at)
                             .http_only(true)
                             .same_site(SameSite::Lax)

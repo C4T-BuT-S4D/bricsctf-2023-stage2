@@ -4,12 +4,12 @@ import "./index.css";
 
 import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
+import { HTTPError } from "ky";
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { QueryClient, QueryClientProvider } from "react-query";
 import App from "./App.tsx";
 import { theme } from "./theme";
-import { QueryClient, QueryClientProvider } from "react-query";
-import { HTTPError } from "ky";
 
 const queryClient = new QueryClient();
 queryClient.setDefaultOptions({
