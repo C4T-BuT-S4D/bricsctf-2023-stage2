@@ -28,7 +28,7 @@ const NOTIFIER_DOMAIN: &str = "notify";
 const NOTIFIER_SERVER_NAME: &str = "mail.notify";
 const CLEANER_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 const CLEANER_INTERVAL: Duration = Duration::from_secs(60);
-const CLEANER_MAX_AGE: Duration = Duration::from_secs(10 * 60);
+const CLEANER_MAX_AGE: Duration = Duration::from_secs(30 * 60);
 
 #[tokio::main]
 async fn main() -> process::ExitCode {
