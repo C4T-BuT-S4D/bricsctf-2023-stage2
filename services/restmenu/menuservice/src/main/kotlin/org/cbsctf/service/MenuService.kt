@@ -35,7 +35,7 @@ class MenuService(db: MongoDatabase, client: RendererClient) {
     }
 
     fun updateMenu(updatedMenu: MenuDto, uid: String): MenuDto? {
-        val existingMenu = this.getMenu(updatedMenu.id, uid) ?: return null
+        val existingMenu = menus.findOneById(updatedMenu.id)?.takeIf { it.userId == uid } ?: return null
         val menu = updatedMenu.toModel()
         menu.shareToken = existingMenu.shareToken
         menu.markdown = generateMarkdown(menu)
@@ -77,6 +77,6 @@ class MenuService(db: MongoDatabase, client: RendererClient) {
     }
 
     private fun generateMenuItemImage(image: String): String {
-        return "file/$image"
+        return "/file/$image"
     }
 }

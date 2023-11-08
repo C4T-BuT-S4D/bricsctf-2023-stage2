@@ -83,7 +83,8 @@ fun Application.configureValidations() {
 
 fun Application.configureSessions() {
     install(Sessions) {
-        cookie<UserSession>("user-session", directorySessionStorage(File("build/.sessions"))) {}
+        cookie<UserSession>("user-session", directorySessionStorage(File("build/.sessions"))) {
+        }
     }
     install(Authentication) {
         session<UserSession>("auth-session") {
