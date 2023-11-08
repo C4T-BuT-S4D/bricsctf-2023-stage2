@@ -120,7 +120,7 @@ class CheckMachine:
         self.port = API_PORT
 
     def url(self, path):
-        return urljoin(f"http://{self.c.host}:{self.port}", path)
+        return urljoin(f"http://{self.c.host}:{self.port}/api/", path)
 
     def register(self, session: requests.Session, username: str, password: str):
         resp = session.post(

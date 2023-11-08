@@ -15,7 +15,7 @@ IMAP_PORT = 143
 
 
 def main(host: str, hint: str):
-    API_URL = f"http://{host}:{API_PORT}"
+    API_URL = f"http://{host}:{API_PORT}/api/"
 
     s = requests.session()
 
@@ -26,12 +26,12 @@ def main(host: str, hint: str):
     print(f"Registering user {username}:{password}")
 
     r = s.post(
-        urljoin(API_URL, "/register"), json={"username": username, "password": password}
+        urljoin(API_URL, "register"), json={"username": username, "password": password}
     )
     assert r.status_code == 201, f"Registration failed ({r.status_code}): {r.text}"
 
     # Get public information about the notification, including its plan
-    r = s.get(urljoin(API_URL, f"/notification/{hint}"))
+    r = s.get(urljoin(API_URL, f"notification/{hint}"))
     assert (
         r.status_code == 200
     ), f"Failed to get notification {hint} ({r.status_code}): {r.text}"
@@ -72,7 +72,7 @@ def main(host: str, hint: str):
     )
 
     r = s.post(
-        urljoin(API_URL, f"/notifications"),
+        urljoin(API_URL, f"notifications"),
         json={
             "title": checklib.rnd_string(30, string.ascii_letters),
             "content": payload,
