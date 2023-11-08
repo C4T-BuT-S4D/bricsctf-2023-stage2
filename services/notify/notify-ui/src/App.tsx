@@ -7,14 +7,16 @@ import { LoadingOverlay } from "@mantine/core";
 import React from "react";
 
 export default function App() {
-  const { isLoading, isError, isSuccess, error } = api.useUser();
+  const { isLoading, isError, data, error } = api.useUser();
 
-  if (isSuccess) {
+  const authError = error instanceof HTTPError && error.response.status == 401;
+
+  if (data && !authError) {
     return <Home></Home>;
   }
 
   if (!isLoading && isError) {
-    if (!(error instanceof HTTPError) || error.response.status != 401) {
+    if (!authError) {
       notifications.show({
         title: "API Error",
         message: `${error}`,
