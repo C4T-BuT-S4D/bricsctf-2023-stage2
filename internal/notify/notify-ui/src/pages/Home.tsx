@@ -58,7 +58,7 @@ export default function Home() {
       content(value) {
         if (value.length < 1) {
           return "Please add the text which will be used as the body of your notification";
-        } else if (value.length > 50) {
+        } else if (value.length > 200) {
           return "Sorry, but we can't store notifications with such long texts yet! Please shorten the notification's contents.";
         }
       },
