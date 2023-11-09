@@ -13,7 +13,7 @@ from notes_lib import *
 
 class Checker(BaseChecker):
     vulns: int = 1
-    timeout: int = 5
+    timeout: int = 10
     uses_attack_data: bool = False
 
     def __init__(self, *args, **kwargs):
@@ -52,7 +52,7 @@ class Checker(BaseChecker):
                     self.assert_(note.split(b'.')[0].isdigit(), 'Can\'t get note_id from notes list', Status.MUMBLE)
                     note1_id = int(note.split(b'.')[0])
                     break
-            
+
             resp = self.mch.show_note(io, note1_id)
             self.assert_eq(resp[0], note1_name.encode(), 'Note1 name is invalid', Status.MUMBLE)
             self.assert_eq(resp[1], note1_info.encode(), 'Note1 info is invalid', Status.MUMBLE)
@@ -62,7 +62,7 @@ class Checker(BaseChecker):
             user2, pass2 = rnd_username(), rnd_password()
             self.mch.register(io, user2, pass2, Status.MUMBLE)
             self.mch.login(io, user2, pass2, Status.MUMBLE)
-            
+
             note2_name = rnd_string(10)
             note2_info = rnd_string(20)
 
@@ -77,7 +77,8 @@ class Checker(BaseChecker):
             self.assert_in(True, [note2_name.encode() in note for note in notes], 'Can\'t list shared notes')
             for note in notes:
                 if note2_name.encode() in note:
-                    self.assert_(note.split(b'.')[0].isdigit(), 'Can\'t get note_id from shared notes list', Status.MUMBLE)
+                    self.assert_(note.split(b'.')[0].isdigit(), 'Can\'t get note_id from shared notes list',
+                                 Status.MUMBLE)
                     note2_id = int(note.split(b'.')[0])
                     break
             resp = self.mch.show_shared_note(io, note2_id)
@@ -118,14 +119,14 @@ class Checker(BaseChecker):
                     self.assert_(note.split(b'.')[0].isdigit(), 'Can\'t get note_id from notes list', Status.MUMBLE)
                     note3_id = int(note.split(b'.')[0])
                     break
-            
+
             resp = self.mch.show_note(io, note3_id)
             self.assert_eq(resp[0], note3_name.encode(), 'Note3 name is invalid', Status.MUMBLE)
             self.assert_eq(resp[1], note3_info.encode(), 'Note3 info is invalid', Status.MUMBLE)
 
             note = self.mch.show_secret_note(io)
             self.assert_(secret_note.encode() == note, 'Secret note is invalid', Status.MUMBLE)
-            
+
             self.mch.exit_(io)
 
         self.cquit(Status.OK)
@@ -142,7 +143,7 @@ class Checker(BaseChecker):
 
             self.mch.exit_(io)
 
-        self.cquit(Status.OK, '', f'{username}:{password}')
+        self.cquit(Status.OK, f'{username}:{password}', '')
 
     def get(self, flag_id: str, flag: str, vuln: str):
         with self.mch.connection() as io:

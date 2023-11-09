@@ -213,19 +213,22 @@ class Checker(BaseValidator):
         cmd = [str(self._exe_path), "put", HOST, flag_id, flag, str(vuln)]
         out, err = self._run_command(cmd)
 
-        self._fatal(out, "stdout is empty")
-
-        new_flag_id = err
-        self._fatal(new_flag_id, "returned flag_id is empty")
-        if len(new_flag_id) > 1024:
-            self._fatal(new_flag_id, "returned flag_id is longer than 1024 characters")
+        self._fatal(len(out) <= 1024, "returned stdout is longer than 1024 characters")
+        self._fatal(len(err) <= 1024, "returned stderr is longer than 1024 characters")
 
         if self._attack_data:
-            self._fatal(flag not in out, "flag is leaked in public data")
-            if len(out) > 1024:
-                self._fatal(out, "returned public data is longer than 1024 characters")
+            self._fatal(out, "stdout is empty")
+            self._fatal(err, "stderr is empty")
 
-        return new_flag_id
+            self._fatal(flag not in out, "flag is leaked in public data")
+
+            # new flag ID is in stderr for attack_data checkers
+            return err
+
+        self._fatal(out, "stdout is empty")
+
+        # new flag ID is in stdout for checkers without attack_data
+        return out
 
     def get(self, flag: str, flag_id: str, vuln: int):
         self._log(f"running GET, flag={flag} flag_id={flag_id} vuln={vuln}")
@@ -583,7 +586,7 @@ def dump_tasks(_args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Validate checkers for A&D. "
-        "Host & number of runs are passed with HOST and RUNS env vars"
+                    "Host & number of runs are passed with HOST and RUNS env vars"
     )
     subparsers = parser.add_subparsers()
 

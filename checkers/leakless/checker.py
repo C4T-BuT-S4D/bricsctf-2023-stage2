@@ -23,7 +23,7 @@ def rnd_document(flag):
 
 class Checker(BaseChecker):
     vulns: int = 1
-    timeout: int = 5
+    timeout: int = 10
     uses_attack_data: bool = True
 
     def __init__(self, *args, **kwargs):

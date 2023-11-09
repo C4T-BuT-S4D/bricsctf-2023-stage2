@@ -161,7 +161,7 @@ def rnd_password() -> str:
 class Checker(ExtendedChecker):
     vulns: int = 1
     timeout: int = 30
-    uses_attack_data: bool = False
+    uses_attack_data: bool = True
 
     def __init__(self, *args, **kwargs):
         super(Checker, self).__init__(*args, **kwargs)
