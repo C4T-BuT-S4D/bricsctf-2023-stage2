@@ -57,13 +57,5 @@ func main() {
 		return ctx.SendFile("front/index.html")
 	})
 
-	// app.Use(filesystem.New(filesystem.Config{
-	// 	Root:         http.Dir("/front"),
-	// 	Browse:       false,
-	// 	Index:        "index.html",
-	// 	NotFoundFile: "404.html",
-	// 	MaxAge:       3600,
-	// }))
-
 	log.Fatal(app.Listen(":2112"))
 }
