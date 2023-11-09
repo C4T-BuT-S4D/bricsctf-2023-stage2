@@ -1,0 +1,14 @@
+{
+	admin off
+}
+
+:7777 {
+  handle_path /api/* {
+    reverse_proxy notify-api:7777
+  }
+  
+  header -server
+  root * /var/www/notify
+  file_server
+}
+

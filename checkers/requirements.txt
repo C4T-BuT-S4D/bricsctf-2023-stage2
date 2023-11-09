@@ -1,3 +1,5 @@
 checklib
 textract
 pwntools
+wonderwords==2.2.0
+imap-tools==1.4.0

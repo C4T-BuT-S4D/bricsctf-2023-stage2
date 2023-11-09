@@ -19,6 +19,7 @@ const SESSION_COOKIE_NAME: &str = "notify_session";
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Session {
     pub username: String,
+    pub expire: bool,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -73,16 +74,23 @@ pub fn layer<B: HttpBody + Send + 'static>(
                 let response = next.run(request).await;
 
                 if let Some(session) = response.extensions().get::<Session>() {
-                    let expires_at = OffsetDateTime::now_utc() + session_age;
+                    let expires_at: OffsetDateTime;
+                    let value: String;
 
-                    let serialized_session = serde_json::to_string(&WrappedSession {
-                        inner: session.clone(),
-                        expires_at,
-                    })
-                    .expect("failed to serialize session data");
+                    if session.expire {
+                        expires_at = OffsetDateTime::UNIX_EPOCH;
+                        value = String::new();
+                    } else {
+                        expires_at = OffsetDateTime::now_utc() + session_age;
+                        value = serde_json::to_string(&WrappedSession {
+                            inner: session.clone(),
+                            expires_at,
+                        })
+                        .expect("failed to serialize session data");
+                    }
 
                     jar = jar.add(
-                        Cookie::build(SESSION_COOKIE_NAME, serialized_session)
+                        Cookie::build(SESSION_COOKIE_NAME, value)
                             .expires(expires_at)
                             .http_only(true)
                             .same_site(SameSite::Lax)
@@ -102,12 +110,12 @@ fn load_or_generate_key(filepath: &str) -> Result<Key> {
             Ok(key) => return Ok(key),
             Err(e) => error!(
                 error = e.to_string(),
-                "invalid cookie key stored in {}, will regenerate it", filepath
+                "invalid cookie key stored in {filepath}, will regenerate it",
             ),
         },
         Err(e) => {
             if e.kind() != io::ErrorKind::NotFound {
-                return Err(e).with_context(|| format!("unable to read cookie file {}", filepath));
+                return Err(e).context(format!("unable to read cookie file {filepath}"));
             }
 
             info!(
@@ -117,9 +125,10 @@ fn load_or_generate_key(filepath: &str) -> Result<Key> {
         }
     };
 
-    let key = Key::try_generate().with_context(|| "failed to generate new cookie key")?;
-    fs::write(filepath, key.master())
-        .with_context(|| format!("failed to save generated cookie key to file {}", filepath))?;
+    let key = Key::try_generate().context("failed to generate new cookie key")?;
+    fs::write(filepath, key.master()).context(format!(
+        "failed to save generated cookie key to file {filepath}"
+    ))?;
 
     Ok(key)
 }

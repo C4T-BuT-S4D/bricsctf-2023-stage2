@@ -1,13 +1,15 @@
-use anyhow::Result;
+use std::future::Future;
+
+use anyhow::{Context, Result};
 use sqlx::{postgres::PgPoolOptions, query, query_as, PgPool};
-use std::{future::Future, time::Duration};
-use time::OffsetDateTime;
+use sqlx_postgres::types::PgInterval;
+use time::{Duration, OffsetDateTime};
 use tokio::time::{timeout, Timeout};
 use uuid::Uuid;
 
 pub struct NotificationCreationRepetitions {
     pub count: u32,
-    pub interval: time::Duration,
+    pub interval: Duration,
 }
 
 pub struct NotificationCreationOpts<'a> {
@@ -36,6 +38,7 @@ pub struct Notification {
     pub plan: Vec<NotificationPlan>,
 }
 
+#[derive(Clone)]
 pub struct NotificationQueueElement {
     pub id: Uuid,
     pub username: String,
@@ -75,28 +78,32 @@ impl From<RepoNotification> for Notification {
 #[derive(Clone)]
 pub struct Repository {
     pool: PgPool,
-    request_timeout: Duration,
+    request_timeout: std::time::Duration,
 }
 
 impl Repository {
     pub async fn connect(
         url: &str,
-        connection_timeout: Duration,
-        request_timeout: Duration,
+        connect_timeout: std::time::Duration,
+        request_timeout: std::time::Duration,
         max_connections: u32,
-    ) -> Result<Repository> {
+    ) -> Result<Self> {
         let pool = timeout(
-            connection_timeout,
+            connect_timeout,
             PgPoolOptions::new()
                 .max_connections(max_connections)
                 .connect(url),
         )
         .await??;
 
-        Ok(Repository {
+        Ok(Self {
             pool,
             request_timeout,
         })
+    }
+
+    pub async fn close(&self) {
+        self.pool.close().await;
     }
 
     /// Create a new account, returning true if an account with such username already exists.
@@ -129,6 +136,40 @@ impl Repository {
             Err(sqlx::Error::RowNotFound) => Ok(None),
             Err(e) => Err(anyhow::Error::new(e)),
         }
+    }
+
+    /// List the usernames of accounts older than the specified maximum age, limiting the resulting batch by 100 elements.
+    pub async fn list_old_account_usernames(
+        &self,
+        max_age: std::time::Duration,
+    ) -> Result<Vec<String>> {
+        let interval = PgInterval::try_from(max_age)
+            .map_err(anyhow::Error::msg)
+            .context("converting max_age to PgInterval")?;
+
+        let q = query!(
+            r#"SELECT username
+            FROM account
+            WHERE created_at < now() - $1::interval
+              AND username NOT IN (
+                SELECT username
+                FROM group_member
+                WHERE group_name = 'superusers'
+              )
+            LIMIT 100"#,
+            interval,
+        );
+
+        let usernames = self.timeout(q.fetch_all(&self.pool)).await??;
+
+        Ok(usernames.into_iter().map(|v| v.username).collect())
+    }
+
+    /// Delete an account by its username, as well as any notifications referencing the account.
+    pub async fn delete_account_by_username(&self, username: &str) -> Result<()> {
+        let q = query!(r#"DELETE FROM account WHERE username = $1"#, username);
+        self.timeout(q.execute(&self.pool)).await??;
+        Ok(())
     }
 
     /// Create new notification entry and add all the required notification plans to the queue.
@@ -232,12 +273,23 @@ impl Repository {
     pub async fn reserve_notification_queue_batch(&self) -> Result<Vec<NotificationQueueElement>> {
         let q = query_as!(
             NotificationQueueElement,
-            r#"UPDATE notification_queue nq
+            r#"WITH batch_elements AS (
+              SELECT notification_id, planned_at
+              FROM notification_queue
+              WHERE planned_at < NOW()
+                AND state = 'planned'
+              LIMIT 500
+            )
+            UPDATE notification_queue nq
             SET state = 'inprogress'
             FROM notification n
             WHERE nq.notification_id = n.id
-              AND nq.planned_at < NOW()
-              AND nq.state = 'planned'
+              AND EXISTS (
+                SELECT 1
+                FROM batch_elements be
+                WHERE be.notification_id = nq.notification_id
+                  AND be.planned_at = nq.planned_at
+              )
             RETURNING n.id, n.username, n.title, n.content, nq.planned_at"#
         );
 

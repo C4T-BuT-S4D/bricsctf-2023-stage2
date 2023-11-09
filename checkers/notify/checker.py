@@ -1,42 +1,147 @@
 #!/usr/bin/env python3
 
+import bisect
 import json
 import secrets
 import string
 import sys
 import time
 import zlib
-from base64 import b85encode, b85decode
+from base64 import b85decode, b85encode
 from datetime import datetime, timedelta, timezone
 
 import notifylib
+import maillib
 import requests
 from checklib import Status, cquit, get_initialized_session, rnd_string
 from extended_checker import ExtendedChecker
+from wonderwords import RandomSentence, RandomWord
 
 ROUND_TIME = 60
-FLAG_LIFETIME = 15
+FLAG_LIFETIME = 10
+NOTIFICATION_DELAY_SLA_SECONDS = 2
+
+WORDS = sorted(RandomWord().filter(), key=len)
+SENTENCE_GENERATOR = RandomSentence()
+
+
+TITLE_SEPARATORS = sum(
+    [[" ", "\t"], list(string.punctuation)],
+    [],
+)
+TITLE_SEPARATORS += sum(
+    [[sp + sep, sep + sp] for sp in [" ", "\t"] for sep in TITLE_SEPARATORS], []
+)
+
+CONTENT_SEPARATORS = TITLE_SEPARATORS + ["..", "..."]
+CONTENT_SEPARATORS += sum(
+    [[nl + sep, sep + nl] for nl in ["\n", "\r", "\r\n"] for sep in CONTENT_SEPARATORS],
+    [],
+)
+
+TITLE_RANDOM_ALPHABET = string.ascii_letters + string.punctuation + string.digits
+CONTENT_RANDOM_ALPHABET = string.printable
+ALPHABET_WITHOUT_DOT = list(set(CONTENT_RANDOM_ALPHABET).difference({"."}))
 
 
 def rnd_fake_flag():
     return "N" + rnd_string(30, string.ascii_uppercase + string.digits) + "="
 
 
+# rnd_word instead of RandomWord() because it is incredibly unoptimized
+def rnd_word(max_length: int) -> str:
+    right = bisect.bisect_right(WORDS, max_length, key=len)
+    return secrets.choice(WORDS[:right])
+
+
+def rnd_sentence(max_length: int) -> str:
+    while True:
+        try:
+            variant = secrets.randbelow(4)
+            sentence = ""
+            match variant:
+                case 0:
+                    sentence = SENTENCE_GENERATOR.bare_bone_sentence()
+                case 1:
+                    sentence = SENTENCE_GENERATOR.bare_bone_with_adjective()
+                case 2:
+                    sentence = SENTENCE_GENERATOR.simple_sentence()
+                case _:
+                    sentence = SENTENCE_GENERATOR.sentence()
+
+            sentence = sentence.strip(".")  # left by the generator
+            if len(sentence) < max_length:
+                return sentence
+        except:
+            pass
+
+
+def rnd_data(length: int, random_alphabet: str, separators: list[str]) -> str:
+    # just in case, because I don't trust python libraries...
+    while True:
+        try:
+            if length >= 30:
+                variant = secrets.randbelow(3)
+            else:
+                variant = secrets.randbelow(2)
+
+            match variant:
+                case 0:
+                    # Random garbage. Replace needed *just in case* a bad sequence is generated.
+                    return rnd_string(length, random_alphabet).replace("\r\n.\r\n", ",")
+                case 1:
+                    # Words joined using a set of supplied separators.
+                    generated = rnd_word(max_length=length)
+                    max_separator_len = max(map(len, separators))
+                    while len(generated) < length - (5 + max_separator_len):
+                        separator = secrets.choice(separators)
+                        word = rnd_word(
+                            max_length=length - len(generated) - len(separator)
+                        )
+                        generated += separator + word
+                    return generated
+                case _:
+                    # Sentences join using a set of supplied separators.
+                    generated = rnd_sentence(max_length=length)
+                    max_separator_len = max(map(len, separators))
+                    while len(generated) < length - (30 + max_separator_len):
+                        separator = secrets.choice(separators)
+                        word = rnd_sentence(
+                            max_length=length - len(generated) - len(separator)
+                        )
+                        generated += separator + word
+                    return generated
+        except:
+            pass
+
+
+# rnd_title generates random data without any line/vertical separators
 def rnd_title(limit=50) -> str:
-    length = 1 + secrets.randbelow(limit)
-    return rnd_string(
-        length,
-        string.ascii_letters + string.digits,
-    )
+    length = 10 + secrets.randbelow(limit - 9)
+    return rnd_data(length, TITLE_RANDOM_ALPHABET, TITLE_SEPARATORS)
 
 
 def rnd_content(flag: str, limit=200) -> str:
-    length = 1 + secrets.randbelow(limit - len(flag))
-    content = rnd_string(length, string.ascii_letters + string.digits)
+    length = 40 + secrets.randbelow(limit - 39)
+    content = rnd_data(length, CONTENT_RANDOM_ALPHABET, CONTENT_SEPARATORS)
 
     if flag != "":
-        insert = secrets.randbelow(length)
-        content = content[:insert] + flag + content[insert:]
+        content = list(content)
+        content += [" "] * (length - len(content))
+        insert = secrets.randbelow(len(content) - len(flag) - 1)
+        content = content[:insert] + list(flag) + content[insert:]
+        content = "".join(content)[:length].rstrip(" ")
+
+    # Single dots at the start aren't valid in SMTP, they must be escaped,
+    # which isn't done by default in the service.
+    lines = content.split("\n")
+    lines = [
+        secrets.choice(ALPHABET_WITHOUT_DOT) + line[1:]
+        if line.startswith(".")
+        else line
+        for line in lines
+    ]
+    content = "\n".join(lines)
 
     return content
 
@@ -65,10 +170,18 @@ class Checker(ExtendedChecker):
     def action(self, action, *args, **kwargs):
         try:
             super(Checker, self).action(action, *args, **kwargs)
-        except requests.exceptions.ConnectionError:
-            self.cquit(Status.DOWN, "Connection error", "Got API connection error")
-        except requests.exceptions.Timeout:
-            self.cquit(Status.DOWN, "Request timeout", "Got API timeout error")
+        except requests.exceptions.ConnectionError as e:
+            self.cquit(
+                Status.DOWN,
+                "API connection error",
+                f"Got API connection error on {e.request.url}",
+            )
+        except requests.exceptions.Timeout as e:
+            self.cquit(
+                Status.DOWN,
+                "API request timeout",
+                f"Got API timeout error on {e.request.url}",
+            )
 
     def check(self):
         """
@@ -79,7 +192,7 @@ class Checker(ExtendedChecker):
         - Create new notification scheduled in rnd(3, 6) seconds with repeat count in rnd(0, 4) and repeat interval in rnd(0, 4)
         - Validate that user A info endpoint returns username and notification with empty sent_at field
         - Validate that user A can get the notification by its ID
-        - Wait until notification should be sent + 5 extra seconds, and perform these checks each second:
+        - Wait until notification should be sent + 2 extra seconds, and perform these checks each second:
             - Validate that an unauthenticated user can get the notification by its ID
             - Validate that user B can get the notification by its ID
         - Validate that user A info endpoint returns username and notification
@@ -87,6 +200,7 @@ class Checker(ExtendedChecker):
         - Login again as user A
         - Validate that user A info endpoint returns username and notification
         - Validate that user A can get the notification by its ID
+        - Login to IMAP as user A and check that INBOX contains enough of the correct emails
         """
 
         session_a = get_initialized_session()
@@ -184,7 +298,7 @@ class Checker(ExtendedChecker):
         while True:
             now = datetime.now(timezone.utc)
             if now > want_notification_public_info.plan[-1].planned_at + timedelta(
-                seconds=6
+                seconds=NOTIFICATION_DELAY_SLA_SECONDS + 1
             ):
                 break
 
@@ -196,13 +310,13 @@ class Checker(ExtendedChecker):
             self.log(
                 f"Notification {notification_id} info by user B: {got_notification_info}"
             )
-            self.check_public_notification_info(
+            self.check_notification_status(
                 got_notification_info,
                 want_notification_public_info,
                 notifylib.Endpoints.GET_NOTIFICATION,
                 Status.MUMBLE,
             )
-            time.sleep(max(0, 0.3 - (time.time() - start)))
+            time.sleep(max(0, 0.5 - (time.time() - start)))
 
             # Check access by anonymous user
             start = time.time()
@@ -212,13 +326,13 @@ class Checker(ExtendedChecker):
             self.log(
                 f"Notification {notification_id} info by no user: {got_notification_info}"
             )
-            self.check_public_notification_info(
+            self.check_notification_status(
                 got_notification_info,
                 want_notification_public_info,
                 notifylib.Endpoints.GET_NOTIFICATION,
                 Status.MUMBLE,
             )
-            time.sleep(max(0, 0.3 - (time.time() - start)))
+            time.sleep(max(0, 0.5 - (time.time() - start)))
 
         # Now check the notification from the original user's point of view
         for i, plan in enumerate(want_notification_public_info.plan):
@@ -252,6 +366,24 @@ class Checker(ExtendedChecker):
             f"{notifylib.Endpoints.GET_NOTIFICATION} returned invalid info after notification completion",
         )
 
+        with maillib.CheckMachine(self) as mail_cm:
+            mail_cm.login(username_a, password_a, Status.MUMBLE)
+            self.log("Logged in to IMAP as user A")
+
+            emails = mail_cm.fetch_by_subject(
+                title, len(want_notification_private_info.plan), Status.MUMBLE
+            )
+            self.log(f"Received emails: {emails}")
+
+            self.assert_eq(
+                len(emails),
+                len(want_notification_private_info.plan),
+                "IMAP fetch returned invalid number of emails after notification completion",
+                Status.MUMBLE,
+            )
+
+            self.check_emails(emails, want_notification_private_info, Status.MUMBLE)
+
         self.cquit(Status.OK)
 
     def put(self, _flag_id: str, flag: str, _vuln: str):
@@ -283,7 +415,7 @@ class Checker(ExtendedChecker):
                 with_flag = False
 
             notify_in = 5 + secrets.randbelow(15)
-            repeat_interval = 45 + secrets.randbelow(10)
+            repeat_interval = 25 + secrets.randbelow(15)
             repeat_count = min(
                 (FLAG_LIFETIME * ROUND_TIME + ROUND_TIME) // repeat_interval, 20
             )
@@ -330,6 +462,15 @@ class Checker(ExtendedChecker):
         )
 
     def get(self, flag_id: str, flag: str, _vuln: str):
+        """
+        Get algorithm:
+        - Login using the flag_id user
+        - Validate the current status of each notification:
+            - Through the public endpoint with an unauthenticated session
+            - Through the user endpoint with the authenticated session
+        - Validate the emails created by each notification via IMAP
+        """
+
         data = json.loads(zlib.decompress(b85decode(flag_id)).decode())
         username = data["u"]
         password = data["p"]
@@ -338,16 +479,17 @@ class Checker(ExtendedChecker):
         ]
 
         session = get_initialized_session()
+        unauth_session = get_initialized_session()
 
         self.notify_cm.login(session, username, password, Status.CORRUPT)
         self.log(f"Logged in as {username}")
 
         for notification_id, notification in notifications:
             got_notification_info = self.notify_cm.get_notification(
-                session, notification_id, Status.CORRUPT
+                unauth_session, notification_id, Status.CORRUPT
             )
             self.log(f"Notification {notification_id} info: {got_notification_info}")
-            self.check_public_notification_info(
+            self.check_notification_status(
                 got_notification_info,
                 notification.to_public_info(),
                 notifylib.Endpoints.GET_NOTIFICATION,
@@ -374,7 +516,7 @@ class Checker(ExtendedChecker):
         )
 
         for notification_id, notification in notifications:
-            self.check_public_notification_info(
+            self.check_notification_status(
                 got_notifications[notification_id],
                 notification.to_private_info(notification_id),
                 notifylib.Endpoints.USER_INFO,
@@ -385,11 +527,52 @@ class Checker(ExtendedChecker):
                 got_notifications[notification_id].content,
                 notification.content,
                 f"{notifylib.Endpoints.USER_INFO} returned invalid notification content",
+                Status.CORRUPT,
             )
+
+        with maillib.CheckMachine(self) as mail_cm:
+            mail_cm.login(username, password, Status.MUMBLE)
+            self.log(f"Logged in to IMAP as {username}")
+
+            for notification_id, notification in notifications:
+                now = datetime.now(timezone.utc)
+                expected_count = len(
+                    list(
+                        filter(
+                            lambda plan: now
+                            > plan.planned_at
+                            + timedelta(seconds=NOTIFICATION_DELAY_SLA_SECONDS),
+                            notification.repetitions_to_plan(),
+                        )
+                    )
+                )
+                self.log(
+                    f"Expect at least {expected_count} emails for notification {notification}"
+                )
+
+                emails = mail_cm.fetch_by_subject(
+                    notification.title,
+                    expected_count,
+                    Status.CORRUPT,
+                )
+                self.log(f"Received emails: {emails}")
+
+                self.assert_eq(
+                    len(emails),
+                    expected_count,
+                    "IMAP fetch returned invalid number of emails after notification completion",
+                    Status.CORRUPT,
+                )
+
+                self.check_emails(
+                    emails,
+                    notification.to_private_info(notification_id),
+                    Status.CORRUPT,
+                )
 
         self.cquit(Status.OK)
 
-    def check_public_notification_info(
+    def check_notification_status(
         self,
         got: notifylib.PublicNotificationInfo | notifylib.PrivateNotificationInfo,
         want: notifylib.PublicNotificationInfo | notifylib.PrivateNotificationInfo,
@@ -448,11 +631,38 @@ class Checker(ExtendedChecker):
                 want.plan[i].sent_at = got_plan.sent_at
             else:
                 self.assert_gt(
-                    want_plan.planned_at + timedelta(seconds=5),
+                    want_plan.planned_at
+                    + timedelta(seconds=NOTIFICATION_DELAY_SLA_SECONDS),
                     now,
                     f"{endpoint} didn't return sent_at for too long after planned_at",
                     Status.MUMBLE,
                 )
+
+    def check_emails(
+        self,
+        got: list[maillib.Email],
+        want: notifylib.PrivateNotificationInfo,
+        status: Status,
+    ):
+        for email in got:
+            self.assert_eq(
+                "notifier@notify",
+                email.from_,
+                "IMAP fetch returned invalid notification sender",
+                Status.MUMBLE,
+            )
+            self.assert_eq(
+                want.title,
+                email.subject,
+                "IMAP fetch returned invalid notification subject",
+                status,
+            )
+            self.assert_eq(
+                want.content,
+                email.text,
+                "IMAP fetch returned invalid notification content",
+                status,
+            )
 
 
 if __name__ == "__main__":

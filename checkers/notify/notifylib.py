@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import urljoin
+from functools import cache
 
 import requests
 from checklib import Status
@@ -18,7 +19,7 @@ class Endpoints:
     USER_INFO = "GET /user"
 
 
-@dataclass
+@dataclass(frozen=True)
 class NotificationCreationRepetitions:
     count: int
     interval: int
@@ -31,13 +32,14 @@ class NotificationCreationRepetitions:
         return NotificationCreationRepetitions(count=d["c"], interval=d["i"])
 
 
-@dataclass
+@dataclass(frozen=True)
 class NotificationCreationOpts:
     title: str
     content: str
     notify_at: datetime
     repetitions: Optional[NotificationCreationRepetitions]
 
+    @cache
     def to_private_info(self, id: str) -> "PrivateNotificationInfo":
         return PrivateNotificationInfo(
             id=id,
@@ -46,9 +48,11 @@ class NotificationCreationOpts:
             plan=self.repetitions_to_plan(),
         )
 
+    @cache
     def to_public_info(self) -> "PublicNotificationInfo":
         return PublicNotificationInfo(title=self.title, plan=self.repetitions_to_plan())
 
+    @cache
     def repetitions_to_plan(self) -> list["NotificationPlan"]:
         plan = [NotificationPlan(planned_at=self.notify_at, sent_at=None)]
 
@@ -116,13 +120,13 @@ class CheckMachine:
         self.port = API_PORT
 
     def url(self, path):
-        return urljoin(f"http://{self.c.host}:{self.port}", path)
+        return urljoin(f"http://{self.c.host}:{self.port}/api/", path)
 
     def register(self, session: requests.Session, username: str, password: str):
         resp = session.post(
             self.url("register"),
             json={"username": username, "password": password},
-            timeout=0.5,
+            timeout=1,
         )
 
         self.c.check_status(resp, 201, Endpoints.REGISTER, Status.MUMBLE)
@@ -140,7 +144,7 @@ class CheckMachine:
         resp = session.post(
             self.url("login"),
             json={"username": username, "password": password},
-            timeout=0.5,
+            timeout=1,
         )
 
         self.c.check_status(resp, 200, Endpoints.LOGIN, status)
@@ -153,7 +157,7 @@ class CheckMachine:
         )
 
     def user_info(self, session: requests.Session) -> UserInfo:
-        resp = session.get(self.url("user"), timeout=0.5)
+        resp = session.get(self.url("user"), timeout=1)
 
         self.c.check_status(resp, 200, Endpoints.USER_INFO, Status.MUMBLE)
 
@@ -222,7 +226,7 @@ class CheckMachine:
                 "interval": notification.repetitions.interval,
             }
 
-        resp = session.post(self.url("notifications"), json=request, timeout=0.5)
+        resp = session.post(self.url("notifications"), json=request, timeout=1)
 
         self.c.check_status(resp, 201, Endpoints.CREATE_NOTIFICATION, Status.MUMBLE)
 

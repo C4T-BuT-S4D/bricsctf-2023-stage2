@@ -27,7 +27,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 		title text NOT NULL,
 		content text NOT NULL,
 		CONSTRAINT notification_pk PRIMARY KEY (id),
-		CONSTRAINT notification_username_fk FOREIGN KEY (username) REFERENCES account (username)
+		CONSTRAINT notification_username_fk FOREIGN KEY (username) REFERENCES account (username) ON DELETE CASCADE
 	);
 
 	CREATE TYPE notification_state AS ENUM ('planned', 'inprogress', 'sent', 'failed');
@@ -38,7 +38,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 		state notification_state NOT NULL DEFAULT 'planned',
 		sent_at timestamptz NULL,
 		CONSTRAINT notification_queue_pk PRIMARY KEY (notification_id, planned_at),
-		CONSTRAINT notification_queue_notification_id_fk FOREIGN KEY (notification_id) REFERENCES notification (id)
+		CONSTRAINT notification_queue_notification_id_fk FOREIGN KEY (notification_id) REFERENCES notification (id) ON DELETE CASCADE
 	);
 
 	INSERT INTO account (username, password_hash)
@@ -52,6 +52,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 
 	GRANT SELECT, INSERT, DELETE ON TABLE account, notification TO notify;
 	GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE notification_queue TO notify;
+	GRANT SELECT ON TABLE group_member TO notify;
 	GRANT SELECT ON TABLE account, group_member TO stalwart;
 EOSQL
 

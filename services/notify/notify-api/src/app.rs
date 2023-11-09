@@ -1,6 +1,5 @@
-mod login;
+mod auth;
 mod notification;
-mod register;
 mod user;
 
 use crate::repository::Repository;
@@ -10,7 +9,7 @@ use axum::extract::{rejection::JsonRejection, FromRequest};
 use axum::http::{Request, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::{async_trait, routing, Extension, Json, Router};
+use axum::{async_trait, body::HttpBody, routing, Extension, Json, Router};
 use serde::Serialize;
 use tracing::error;
 
@@ -83,7 +82,7 @@ pub struct State {
     pub repository: Repository,
 }
 
-async fn authentication_layer<B>(
+async fn authentication_layer<B: HttpBody + Send + 'static>(
     Extension(session): Extension<Option<Session>>,
     mut request: Request<B>,
     next: Next<B>,
@@ -100,14 +99,15 @@ async fn authentication_layer<B>(
 /// Build and return the API router itself, to be merged with the middlewares and other layers.
 pub fn router() -> Router<State> {
     let unauthenticated_router = Router::new()
-        .route("/register", routing::post(register::handler))
-        .route("/login", routing::post(login::handler))
+        .route("/register", routing::post(auth::register_handler))
+        .route("/login", routing::post(auth::login_handler))
         .route(
             "/notification/:notification_id",
             routing::get(notification::get_handler),
         );
 
     let authenticated_router = Router::new()
+        .route("/logout", routing::post(auth::logout_handler))
         .route("/user", routing::get(user::handler))
         .route(
             "/notifications",
