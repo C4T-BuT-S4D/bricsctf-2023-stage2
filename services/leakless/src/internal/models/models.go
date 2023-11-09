@@ -7,7 +7,7 @@ type Company struct {
 
 	Name     string `gorm:"uniqueIndex"`
 	Login    string `gorm:"uniqueIndex"`
-	Password []byte
+	Password string
 
 	Secrets   []Secret   `gorm:"foreignKey:CompanyID"`
 	Documents []Document `gorm:"foreignKey:CompanyID"`

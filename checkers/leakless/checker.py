@@ -139,7 +139,7 @@ class Checker(BaseChecker):
         username, password, company_id = flag_id.split(':')
 
         hashes = self.mch.get_company_hashes(session, company_id, Status.CORRUPT)
-        self.assert_in(hashes.hash(flag), hashes.hashes, "secret hash missing", Status.CORRUPT)
+        self.assert_eq(self.mch.string_in_hashes(hashes, flag), True, "secret hash missing", Status.CORRUPT)
 
         self.cquit(Status.OK)
 

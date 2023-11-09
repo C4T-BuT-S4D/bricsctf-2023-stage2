@@ -5,7 +5,7 @@ type EditCompanyForm struct {
 }
 
 type PutSecretForm struct {
-	Secret string `json:"secret"`
+	Secret string `json:"secret" validate:"required"`
 }
 
 type GetSelfCompanyResponse struct {

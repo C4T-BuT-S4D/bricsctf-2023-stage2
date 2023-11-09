@@ -35,10 +35,13 @@ func GetCompanyDocumentIDs(company *models.Company) []uint {
 	return documentIDs
 }
 
-func GetRawHashes(sh *hash.SecretHashes) []uint64 {
-	hashes := make([]uint64, len(sh.Hashes))
+func GetRawHashes(sh *hash.SecretHashes) []types.Hash {
+	hashes := make([]types.Hash, len(sh.Hashes))
 	for i, h := range sh.Hashes {
-		hashes[i] = h.Hash
+		hashes[i] = types.Hash{
+			Hash: h.Hash,
+			Len:  len(h.Secret),
+		}
 	}
 
 	return hashes

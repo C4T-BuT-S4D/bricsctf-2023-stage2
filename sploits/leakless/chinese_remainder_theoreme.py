@@ -39,7 +39,7 @@ def main():
     host = sys.argv[1]
     hint = sys.argv[2]
 
-    url = f"http://{host}:{PORT}"
+    url = f"http://{host}:{PORT}/api"
 
     flag_hashes: List[List[Tuple[int, int]]] = []
     for _ in range((Q ** (FLAG_LENGTH * 2)).bit_length() // 32):
@@ -47,7 +47,7 @@ def main():
         for i, hash in enumerate(hashes["hashes"]):
             while len(flag_hashes) <= i:
                 flag_hashes.append([])
-            flag_hashes[i].append((hash, hashes["p"]))
+            flag_hashes[i].append((hash["hash"], hashes["p"]))
 
     for possible_flag_hash in flag_hashes:
         print(recover_hash_from_remainders(possible_flag_hash), flush=True)

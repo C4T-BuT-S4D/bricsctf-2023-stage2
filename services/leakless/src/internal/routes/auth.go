@@ -1,12 +1,9 @@
 package routes
 
 import (
-	"log"
-
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
 	"leakless/internal/db"
@@ -23,16 +20,10 @@ func Register(c *fiber.Ctx) error {
 		return err
 	}
 
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(body.Password), 10)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	company := models.Company{
 		Name:     body.Name,
 		Login:    body.Login,
-		Password: passwordHash,
+		Password: body.Password,
 	}
 
 	if q := db.DB.Create(&company); q.Error != nil {
@@ -63,7 +54,7 @@ func Login(c *fiber.Ctx) error {
 	if q.Error != nil && !errors.Is(q.Error, gorm.ErrRecordNotFound) {
 		return q.Error
 	}
-	if errors.Is(q.Error, gorm.ErrRecordNotFound) || bcrypt.CompareHashAndPassword(company.Password, []byte(body.Password)) != nil {
+	if errors.Is(q.Error, gorm.ErrRecordNotFound) || company.Password != body.Password {
 		return util.Fail(c, fiber.StatusNotFound, "login or password incorrect")
 	}
 

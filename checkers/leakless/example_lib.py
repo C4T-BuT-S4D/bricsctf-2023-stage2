@@ -32,7 +32,7 @@ class Hashes(NamedTuple):
 class CheckMachine:
     @property
     def url(self):
-        return f'http://{self.c.host}:{self.port}'
+        return f'http://{self.c.host}:{self.port}/api'
 
     def __init__(self, checker: BaseChecker):
         self.c = checker
@@ -195,7 +195,9 @@ class CheckMachine:
         self.c.assert_eq(type(q), int, "invalid response on GetHashes", status)
         self.c.assert_eq(type(hashes), list, "invalid response on GetHashes", status)
         for h in hashes:
-            self.c.assert_eq(type(h), int, "invalid response on GetHashes", status)
+            self.c.assert_eq(type(h), dict, "invalid response on GetHashes", status)
+            self.c.assert_in("hash", h, "invalid response on GetHashes", status)
+            self.c.assert_in("len", h, "invalid response on GetHashes", status)
 
         return Hashes(
             p=p,
@@ -244,3 +246,10 @@ class CheckMachine:
         self.c.assert_eq(type(text), str, "invalid response on GetSanitizedDocument", status)
 
         return text
+
+    def string_in_hashes(self, hashes: Hashes, string: str):
+        string_hash = hashes.hash(string)
+        for h in hashes.hashes:
+            if h["hash"] == string_hash and h["len"] == len(string):
+                return True
+        return False
