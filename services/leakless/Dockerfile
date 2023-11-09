@@ -1,6 +1,6 @@
-FROM golang:1.21-bookworm as builder
+FROM golang:1.21.3-alpine3.18 AS server-builder
 
-WORKDIR /app
+WORKDIR /build
 COPY src/go.mod .
 COPY src/go.sum .
 RUN go mod download
@@ -8,6 +8,7 @@ RUN go mod download
 COPY src .
 RUN go build -o leakless cmd/leakless/main.go
 
-FROM debian:bookworm
-COPY --from=builder /app/leakless /app/
-CMD ["/app/leakless"]
+FROM scratch
+COPY front /front
+COPY --from=server-builder /build/leakless /leakless
+CMD ["/leakless"]

@@ -22,26 +22,39 @@ func main() {
 	})
 	app.Use(cors.New())
 
-	app.Post("/register", routes.Register)
-	app.Post("/login", routes.Login)
+	api := app.Group("api")
 
-	app.Get("/me", middleware.Auth, routes.GetSelfCompany)
-	app.Get("/me/edit", middleware.Auth, routes.EditCompany)
-	app.Get("/me/secret/:secret_id", middleware.Auth, routes.GetSecret)
-	app.Put("/me/secret", middleware.Auth, routes.PutSecret)
-	app.Delete("/me/secret/:secret_id", middleware.Auth, routes.DeleteSecret)
+	api.Post("/register", routes.Register)
+	api.Post("/login", routes.Login)
 
-	app.Get("/company/:company_id", routes.GetCompany)
-	app.Post("/query_company", routes.QueryCompany)
-	app.Get("/companies", routes.GetCompanies)
-	app.Get("/company/:company_id/hashes", routes.GetHashes)
-	app.Put("/company/:company_id/doc", routes.PutDoc)
+	api.Get("/me", middleware.Auth, routes.GetSelfCompany)
+	api.Post("/me/edit", middleware.Auth, routes.EditCompany)
+	api.Get("/me/secret/:secret_id", middleware.Auth, routes.GetSecret)
+	api.Put("/me/secret", middleware.Auth, routes.PutSecret)
+	api.Delete("/me/secret/:secret_id", middleware.Auth, routes.DeleteSecret)
 
-	app.Get("/doc/:document_id", middleware.Auth, routes.GetDocument)
-	app.Get("/doc/:document_id/sanitized", routes.GetSanitizedDocument)
+	api.Get("/company/:company_id", routes.GetCompany)
+	api.Post("/query_company", routes.QueryCompany)
+	api.Get("/companies", routes.GetCompanies)
+	api.Get("/company/:company_id/hashes", routes.GetHashes)
+	api.Put("/company/:company_id/doc", routes.PutDoc)
 
-	app.Use(func(c *fiber.Ctx) error {
-		return c.SendStatus(404)
+	api.Get("/doc/:document_id", middleware.Auth, routes.GetDocument)
+	api.Get("/doc/:document_id/sanitized", routes.GetSanitizedDocument)
+
+	api.Use(func(c *fiber.Ctx) error {
+		return util.Fail(c, fiber.StatusNotFound, "not found")
+	})
+
+
+	app.Static("/css", "front/css")
+	app.Static("/js", "front/js")
+
+	app.Get("/favicon.ico", func (ctx *fiber.Ctx) error {
+		return ctx.SendFile("front/favicon.ico")
+	})
+	app.Get("/*", func (ctx *fiber.Ctx) error {
+		return ctx.SendFile("front/index.html")
 	})
 
 	log.Fatal(app.Listen(":2112"))

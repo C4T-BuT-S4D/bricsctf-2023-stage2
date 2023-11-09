@@ -7,18 +7,18 @@ import (
 const ReplaceChar = '*'
 
 type Hasher struct {
-	P uint64 `json:"p"`
-	Q uint64 `json:"q"`
+	P uint64
+	Q uint64
 }
 
 type SecretHash struct {
-	Hash   uint64 `json:"hash"`
-	secret string
+	Hash   uint64
+	Secret string
 }
 
 type SecretHashes struct {
 	Hasher
-	Hashes []SecretHash `json:"hashes"`
+	Hashes []SecretHash
 }
 
 type Interval struct {
@@ -44,7 +44,7 @@ func GenHashes(secrets []string) *SecretHashes {
 	for _, s := range secrets {
 		sh.Hashes = append(sh.Hashes, SecretHash{
 			Hash:   sh.hash([]byte(s)),
-			secret: s,
+			Secret: s,
 		})
 	}
 
@@ -77,11 +77,11 @@ func (sh *SecretHashes) FindSecrets(text string) (secretIntervals []Interval) {
 
 	secretsByLen := make(map[int]map[uint64][]SecretHash)
 	for _, s := range sh.Hashes {
-		if secretsByLen[len(s.secret)] == nil {
-			secretsByLen[len(s.secret)] = make(map[uint64][]SecretHash)
+		if secretsByLen[len(s.Secret)] == nil {
+			secretsByLen[len(s.Secret)] = make(map[uint64][]SecretHash)
 		}
 
-		secretsByLen[len(s.secret)][s.Hash] = append(secretsByLen[len(s.secret)][s.Hash], s)
+		secretsByLen[len(s.Secret)][s.Hash] = append(secretsByLen[len(s.Secret)][s.Hash], s)
 	}
 
 	for l, secretMap := range secretsByLen {
@@ -90,7 +90,7 @@ func (sh *SecretHashes) FindSecrets(text string) (secretIntervals []Interval) {
 
 			if secretList, found := secretMap[h]; found {
 				for _, s := range secretList {
-					if text[i:i+l] == s.secret {
+					if text[i:i+l] == s.Secret {
 						secretIntervals = append(secretIntervals, Interval{
 							L: i,
 							R: i + l,

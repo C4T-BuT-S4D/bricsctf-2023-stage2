@@ -29,8 +29,13 @@ type PutDocumentResponse struct {
 	ID uint `json:"id"`
 }
 
+type Hash struct {
+	Hash uint64 `json:"hash"`
+	Len  int    `json:"len"`
+}
+
 type HashesResponse struct {
-	P      uint64   `json:"p"`
-	Q      uint64   `json:"q"`
-	Hashes []uint64 `json:"hashes"`
+	P      uint64 `json:"p"`
+	Q      uint64 `json:"q"`
+	Hashes []Hash `json:"hashes"`
 }
