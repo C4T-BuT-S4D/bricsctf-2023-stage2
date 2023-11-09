@@ -8,4 +8,4 @@ Begin by registering an account on the website, exposed on port 7777. You can th
 
 ## Mail client
 
-To actually receive and read the notifications, connect a mail client of your choice (Apple Mail, Mozilla Thunderbird, etc) using `{username}@notify` as the email, and `{username}` as your account username, where the "{username}" stands for the username you have registered with on the website. If you encounter issues with logging in, check that authentication over plaintext is enabled, since there are no custom TLS certificates installed.
+To actually receive and read the notifications, connect a mail client of your choice (Apple Mail, Mozilla Thunderbird, etc) using `{username}@notify` as the email, and `{username}` as your account username, where the "{username}" stands for the username you have registered with on the website, specifying the host where Notify is launched as the inbound and outbound IMAP server address. If you encounter issues with logging in, check that authentication over plaintext is enabled, since there are no custom TLS certificates installed.
