@@ -25,6 +25,8 @@ class Checker(BaseChecker):
             super(Checker, self).action(action, *args, **kwargs)
         except pwnlib.exception.PwnlibException:
             self.cquit(Status.DOWN, 'Connection error', 'Got requests connection error')
+        except EOFError:
+            self.cquit(Status.DOWN, 'Connection error', 'Got requests connection error')
 
     def check(self):
         with self.mch.connection() as io:
