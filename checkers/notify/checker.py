@@ -404,7 +404,14 @@ class Checker(ExtendedChecker):
         flag_notification_ids = []
 
         for i in range(1 + secrets.randbelow(5)):
-            title = rnd_title(20)
+            # generate title which isn't contained in any other title
+            title = ""
+            while not title:
+                title = rnd_title(20)
+                for created in notifications:
+                    if title in created[1].title:
+                        title = ""
+                        break
 
             # at least one notification must contain a flag
             if i == 0 or secrets.randbits(1) == 0:
