@@ -2,7 +2,7 @@
 
 # BRICS+ CTF 2023 | Finals
 
-The contest was held on November 11, 2023.
+The contest was held on November 11, 2023. Services and infrastructure by C4T BuT S4D. Organized by ITMO University and ACISO.
 
 Repository contains source code of services, checkers and exploits.
 
