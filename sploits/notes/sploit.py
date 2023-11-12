@@ -53,13 +53,13 @@ logout(b'y')
 login(b'user2', b'user2')
 logout(b'n')
 login(b'user3', b'user3')
-add_note(b'bbbbbbbbbbbbbbb', b'b')
-add_note(b'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', b'a')
+add_note(b'bbbbbbbbbbbbbbb', b'b')                  # 1st note
+add_note(b'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', b'a')   # 2nd note, that will be overwritten with UserObject later
 share_note(b'user1', 1)
 delete_note(1)
 delete_note(1)
 logout(b'y')
-login(b'user2', b'user2')
+login(b'user2', b'user2')                           # now 2nd user object and 2nd note object are at the same place
 logout(b'y')
 login(b'user1')
 show_shared_note(0)
